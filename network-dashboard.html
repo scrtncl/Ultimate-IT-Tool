@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Network Dashboard</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+      background-color: #e8edf1;
+      color: #1b2b38;
+      line-height: 1.5;
+      display: grid;
+      grid-template-columns: 1fr;
+    }
+
+    .content {
+      min-width: 0;
+    }
+
+    /* ---------- Side navigation ---------- */
+    nav {
+      background-color: #12324a;
+      color: #ffffff;
+      padding: 12px 16px;
+    }
+
+    nav .brand {
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    nav ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    nav a {
+      display: block;
+      padding: 6px 12px;
+      border-radius: 4px;
+      color: #cfdde8;
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
+
+    nav a:hover {
+      background-color: #1d4764;
+    }
+
+    nav a.current {
+      background-color: #ffffff;
+      color: #12324a;
+      font-weight: 600;
+    }
+
+    /* ---------- Header ---------- */
+    header {
+      background-color: #12324a;
+      color: #ffffff;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 1.4rem;
+    }
+
+    header p {
+      margin: 0;
+      color: #b9ccdb;
+      font-size: 0.9rem;
+    }
+
+    .header-status {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background-color: #1d4764;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+    }
+
+    /* ---------- Status dots ---------- */
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background-color: #8a9aa6;
+      flex-shrink: 0;
+    }
+
+    .dot.up { background-color: #34b36b; }
+    .dot.warn { background-color: #e0a100; }
+    .dot.down { background-color: #d24545; }
+
+    /* ---------- Main layout (grid) ---------- */
+    main {
+      padding: 16px;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+
+    .panel {
+      background-color: #ffffff;
+      border: 1px solid #c3cfd8;
+      border-radius: 6px;
+      padding: 16px;
+      min-width: 0;
+    }
+
+    .panel h2 {
+      margin: 0 0 4px 0;
+      font-size: 1.05rem;
+    }
+
+    .panel .hint {
+      margin: 0 0 12px 0;
+      font-size: 0.85rem;
+      color: #5a6e7c;
+    }
+
+    .ip {
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.9rem;
+    }
+
+    /* ---------- Router status ---------- */
+    .stat-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .stat-list li {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 8px 0;
+      border-bottom: 1px solid #e3e9ee;
+    }
+
+    .stat-list li:last-child {
+      border-bottom: none;
+    }
+
+    .stat-list span:first-child {
+      color: #5a6e7c;
+    }
+
+    /* ---------- Bandwidth and latency bars ---------- */
+    .meter {
+      margin-bottom: 14px;
+    }
+
+    .meter-top {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.9rem;
+      margin-bottom: 4px;
+    }
+
+    .bar {
+      height: 12px;
+      background-color: #dde5eb;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      background-color: #2b7bb9;
+    }
+
+    .bar-fill.warn {
+      background-color: #e0a100;
+    }
+
+    /* ---------- Alerts ---------- */
+    .alerts {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .alerts li {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      font-size: 0.9rem;
+    }
+
+    .alerts .dot {
+      margin-top: 6px;
+    }
+
+    .alerts small {
+      display: block;
+      color: #5a6e7c;
+    }
+
+    /* ---------- Device table ---------- */
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+      min-width: 560px;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 8px 10px;
+      border-bottom: 1px solid #e3e9ee;
+    }
+
+    th {
+      background-color: #f1f5f8;
+      font-weight: 600;
+    }
+
+    td.status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: none;
+    }
+
+    tr td.status {
+      min-height: 100%;
+    }
+
+    /* ---------- Forms ---------- */
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .field-row {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    label {
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    input, select, textarea {
+      font: inherit;
+      padding: 8px 10px;
+      border: 1px solid #9fb0bd;
+      border-radius: 4px;
+      background-color: #ffffff;
+      color: #1b2b38;
+      width: 100%;
+    }
+
+    textarea {
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.9rem;
+      resize: vertical;
+    }
+
+    input:focus, select:focus, textarea:focus, button:focus {
+      outline: 3px solid #7db5e0;
+      outline-offset: 1px;
+    }
+
+    button {
+      font: inherit;
+      font-weight: 600;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 4px;
+      background-color: #12324a;
+      color: #ffffff;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #1d4764;
+    }
+
+    button.secondary {
+      background-color: #ffffff;
+      color: #12324a;
+      border: 1px solid #12324a;
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .output {
+      margin-top: 12px;
+      padding: 10px;
+      background-color: #f1f5f8;
+      border: 1px dashed #9fb0bd;
+      border-radius: 4px;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.85rem;
+      color: #5a6e7c;
+      min-height: 64px;
+    }
+
+    .notice {
+      padding: 10px 16px;
+      background-color: #fff4d6;
+      border-bottom: 1px solid #e6cf8a;
+      font-size: 0.85rem;
+    }
+
+    footer {
+      padding: 16px;
+      text-align: center;
+      font-size: 0.8rem;
+      color: #5a6e7c;
+    }
+
+    /* ---------- Wide screens: side menu ---------- */
+    @media (min-width: 900px) {
+      body {
+        grid-template-columns: 220px 1fr;
+        min-height: 100vh;
+      }
+
+      nav {
+        padding: 20px 12px;
+      }
+
+      nav ul {
+        flex-direction: column;
+      }
+    }
+
+    /* ---------- Tablet: 2 columns ---------- */
+    @media (min-width: 700px) {
+      header {
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px 24px;
+      }
+
+      main {
+        grid-template-columns: 1fr 1fr;
+        padding: 24px;
+      }
+
+      .wide {
+        grid-column: 1 / -1;
+      }
+
+      .field-row {
+        flex-direction: row;
+      }
+    }
+
+    /* ---------- Desktop: 3 columns ---------- */
+    @media (min-width: 1400px) {
+      main {
+        grid-template-columns: 1fr 1fr 1fr;
+        max-width: 1400px;
+        margin: 0 auto;
+      }
+
+      .span-2 {
+        grid-column: span 2;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <div class="brand">scrtncl</div>
+    <ul>
+      <li><a href="network-dashboard.html" class="current">Overview</a></li>
+      <li><a href="network-doctor.html">Network Doctor</a></li>
+      <li><a href="network-map.html">Network Map</a></li>
+      <li><a href="router-center.html">Router Center</a></li>
+      <li><a href="device-manager.html">Device Manager</a></li>
+      <li><a href="ai-technician.html">AI Technician</a></li>
+      <li><a href="settings.html">Settings</a></li>
+    </ul>
+  </nav>
+
+  <div class="content">
+
+  <header>
+    <div>
+      <h1>Network Dashboard</h1>
+      <p>Home lab and small office view</p>
+    </div>
+    <div class="header-status">
+      <div class="pill"><span class="dot up" id="dot-router"></span><span id="text-router">Router online</span></div>
+      <div class="pill"><span class="dot up" id="dot-internet"></span><span id="text-internet">Internet connected</span></div>
+      <div class="pill"><span class="dot warn" id="dot-issues"></span><span id="text-issues">2 alerts</span></div>
+    </div>
+  </header>
+
+  <div class="notice" id="notice">
+    Sample data. To see live results, start the engine with <span class="ip">python scrtncl_server.py</span> and open this page from <span class="ip">http://localhost:8000</span>.
+  </div>
+
+  <main>
+
+    <!-- Router status -->
+    <section class="panel">
+      <h2>Router</h2>
+      <p class="hint" id="router-hint">Main gateway (sample)</p>
+      <ul class="stat-list">
+        <li><span>Address</span><span class="ip" id="router-address">192.168.1.1</span></li>
+        <li><span>Model</span><span>Example AX3000</span></li>
+        <li><span>Firmware</span><span>2.4.1</span></li>
+        <li><span>Uptime</span><span>14 days 6 hours</span></li>
+        <li><span>CPU load</span><span>12%</span></li>
+        <li><span>Connected devices</span><span>9</span></li>
+      </ul>
+    </section>
+
+    <!-- Bandwidth -->
+    <section class="panel">
+      <h2>Bandwidth</h2>
+      <p class="hint">Sample data until you add your router login</p>
+
+      <div class="meter">
+        <div class="meter-top"><span>Download</span><span>212 Mbps</span></div>
+        <div class="bar"><div class="bar-fill" style="width: 42%;"></div></div>
+      </div>
+
+      <div class="meter">
+        <div class="meter-top"><span>Upload</span><span>38 Mbps</span></div>
+        <div class="bar"><div class="bar-fill" style="width: 8%;"></div></div>
+      </div>
+
+      <div class="meter">
+        <div class="meter-top"><span>Packet loss</span><span>1.8%</span></div>
+        <div class="bar"><div class="bar-fill warn" style="width: 18%;"></div></div>
+      </div>
+    </section>
+
+    <!-- Latency -->
+    <section class="panel">
+      <h2>Latency</h2>
+      <p class="hint" id="latency-hint">Sample data</p>
+
+      <div class="meter">
+        <div class="meter-top"><span>Router</span><span id="lat-router">1 ms</span></div>
+        <div class="bar"><div class="bar-fill" id="bar-router" style="width: 2%;"></div></div>
+      </div>
+
+      <div class="meter">
+        <div class="meter-top"><span>DNS lookup</span><span id="lat-dns">14 ms</span></div>
+        <div class="bar"><div class="bar-fill" id="bar-dns" style="width: 14%;"></div></div>
+      </div>
+
+      <div class="meter">
+        <div class="meter-top"><span>Public website</span><span id="lat-web">48 ms</span></div>
+        <div class="bar"><div class="bar-fill" id="bar-web" style="width: 48%;"></div></div>
+      </div>
+
+      <button type="button" id="check-button" style="margin-top: 4px;">Check now</button>
+    </section>
+
+    <!-- Devices -->
+    <section class="panel wide span-2">
+      <h2>Devices</h2>
+      <p class="hint">Sample devices. A real device scan comes later.</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>IP address</th>
+              <th>MAC address</th>
+              <th>Group</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>NAS</td>
+              <td class="ip">192.168.1.20</td>
+              <td class="ip">A4:5E:60:1B:22:C1</td>
+              <td>Servers</td>
+              <td><span class="dot up"></span> Online</td>
+            </tr>
+            <tr>
+              <td>Proxmox host</td>
+              <td class="ip">192.168.1.21</td>
+              <td class="ip">B8:27:EB:09:4D:7A</td>
+              <td>Servers</td>
+              <td><span class="dot up"></span> Online</td>
+            </tr>
+            <tr>
+              <td>Office printer</td>
+              <td class="ip">192.168.10.40</td>
+              <td class="ip">00:1B:A9:3C:11:F0</td>
+              <td>Front desk</td>
+              <td><span class="dot warn"></span> Slow</td>
+            </tr>
+            <tr>
+              <td>Reception PC</td>
+              <td class="ip">192.168.10.12</td>
+              <td class="ip">3C:52:82:A7:90:0E</td>
+              <td>Front desk</td>
+              <td><span class="dot up"></span> Online</td>
+            </tr>
+            <tr>
+              <td>Dev laptop</td>
+              <td class="ip">192.168.20.15</td>
+              <td class="ip">F0:18:98:5D:6B:32</td>
+              <td>Engineering</td>
+              <td><span class="dot up"></span> Online</td>
+            </tr>
+            <tr>
+              <td>IP camera</td>
+              <td class="ip">192.168.30.5</td>
+              <td class="ip">9C:8E:CD:44:20:B6</td>
+              <td>IoT</td>
+              <td><span class="dot down"></span> Offline</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Alerts -->
+    <section class="panel">
+      <h2>Alerts</h2>
+      <p class="hint">Sample alerts, most recent first. Live alerts come later.</p>
+      <ul class="alerts">
+        <li>
+          <span class="dot down"></span>
+          <div>IP camera stopped responding
+            <small>192.168.30.5 &middot; 10 minutes ago</small>
+          </div>
+        </li>
+        <li>
+          <span class="dot warn"></span>
+          <div>Packet loss above 1%
+            <small>Internet connection &middot; 25 minutes ago</small>
+          </div>
+        </li>
+        <li>
+          <span class="dot up"></span>
+          <div>Router firmware check passed
+            <small>192.168.1.1 &middot; this morning</small>
+          </div>
+        </li>
+      </ul>
+    </section>
+
+    <!-- Ping / traceroute -->
+    <section class="panel">
+      <h2>Ping and traceroute</h2>
+      <p class="hint">Check if a host is reachable</p>
+      <form action="#" method="post">
+        <div class="field">
+          <label for="ping-host">Host or IP address</label>
+          <input type="text" id="ping-host" name="host" placeholder="192.168.1.20 or example.com" required>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="ping-tool">Tool</label>
+            <select id="ping-tool" name="tool">
+              <option value="ping">Ping</option>
+              <option value="traceroute">Traceroute</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="ping-count">Packets</label>
+            <input type="number" id="ping-count" name="count" value="4" min="1" max="20">
+          </div>
+        </div>
+        <div class="button-row">
+          <button type="submit">Run test</button>
+          <button type="reset" class="secondary">Clear</button>
+        </div>
+      </form>
+      <div class="output">Results will appear here.</div>
+    </section>
+
+    <!-- Port scan -->
+    <section class="panel">
+      <h2>Port scan</h2>
+      <p class="hint">Only scan devices you own or manage</p>
+      <form action="#" method="post">
+        <div class="field">
+          <label for="scan-host">Host or IP address</label>
+          <input type="text" id="scan-host" name="host" placeholder="192.168.1.21" required>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="scan-start">First port</label>
+            <input type="number" id="scan-start" name="start" value="1" min="1" max="65535">
+          </div>
+          <div class="field">
+            <label for="scan-end">Last port</label>
+            <input type="number" id="scan-end" name="end" value="1024" min="1" max="65535">
+          </div>
+        </div>
+        <div class="field">
+          <label for="scan-type">Scan type</label>
+          <select id="scan-type" name="type">
+            <option value="tcp">TCP</option>
+            <option value="udp">UDP</option>
+          </select>
+        </div>
+        <div class="button-row">
+          <button type="submit">Start scan</button>
+          <button type="reset" class="secondary">Clear</button>
+        </div>
+      </form>
+      <div class="output">Open ports will appear here.</div>
+    </section>
+
+    <!-- Router login and commands -->
+    <section class="panel wide span-2">
+      <h2>Router access</h2>
+      <p class="hint">Log in to your router, then send it a command</p>
+      <form action="#" method="post">
+        <div class="field-row">
+          <div class="field">
+            <label for="router-ip">Router address</label>
+            <input type="text" id="router-ip" name="router" value="192.168.1.1">
+          </div>
+          <div class="field">
+            <label for="router-method">Connect with</label>
+            <select id="router-method" name="method">
+              <option value="ssh">SSH</option>
+              <option value="snmp">SNMP</option>
+              <option value="api">Router API</option>
+            </select>
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="router-user">Username</label>
+            <input type="text" id="router-user" name="user" autocomplete="username">
+          </div>
+          <div class="field">
+            <label for="router-pass">Password</label>
+            <input type="password" id="router-pass" name="password" autocomplete="current-password">
+          </div>
+        </div>
+        <div class="field">
+          <label for="router-command">Command</label>
+          <textarea id="router-command" name="command" rows="3" placeholder="show interfaces"></textarea>
+        </div>
+        <div class="button-row">
+          <button type="submit">Send command</button>
+          <button type="reset" class="secondary">Clear</button>
+        </div>
+      </form>
+      <div class="output">Router replies will appear here.</div>
+    </section>
+
+  </main>
+
+  <footer>
+    Use this tool only on networks and routers you own or have permission to manage.
+  </footer>
+
+  </div>
+
+  <script>
+    var notice = document.getElementById("notice");
+    var checkButton = document.getElementById("check-button");
+    var latencyHint = document.getElementById("latency-hint");
+    var routerAddress = document.getElementById("router-address");
+    var routerHint = document.getElementById("router-hint");
+
+    function setPill(name, state, text) {
+      document.getElementById("dot-" + name).className = "dot " + state;
+      document.getElementById("text-" + name).textContent = text;
+    }
+
+    // ms: the measured time, max: the time that fills the bar, warnAbove: when the bar turns amber
+    function setMeter(name, ms, max, warnAbove) {
+      var value = document.getElementById("lat-" + name);
+      var bar = document.getElementById("bar-" + name);
+      if (ms === null || ms === undefined) {
+        value.textContent = "No reply";
+        bar.style.width = "0%";
+        bar.className = "bar-fill";
+        return;
+      }
+      value.textContent = ms + " ms";
+      bar.style.width = Math.max(2, Math.min(100, ms / max * 100)) + "%";
+      bar.className = ms > warnAbove ? "bar-fill warn" : "bar-fill";
+    }
+
+    function showReport(report) {
+      var m = report.metrics;
+      var fails = 0;
+      var warns = 0;
+      for (var i = 0; i < report.stages.length; i++) {
+        if (report.stages[i].status === "fail") { fails++; }
+        if (report.stages[i].status === "warn") { warns++; }
+      }
+
+      if (m.router_online) {
+        setPill("router", "up", "Router online");
+      } else if (m.internet_ok) {
+        setPill("router", "warn", "Router not answering pings");
+      } else {
+        setPill("router", "down", "Router not reachable");
+      }
+
+      setPill("internet", m.internet_ok ? "up" : "down", m.internet_ok ? "Internet connected" : "No internet");
+
+      var issues = fails + warns;
+      if (issues === 0) {
+        setPill("issues", "up", "No issues found");
+      } else {
+        setPill("issues", fails > 0 ? "down" : "warn", issues + (issues === 1 ? " issue found" : " issues found"));
+      }
+
+      routerAddress.textContent = m.gateway || "Not found";
+      routerHint.textContent = "Main gateway (address is live, the rest is sample)";
+
+      setMeter("router", m.router_ms, 50, 20);
+      setMeter("dns", m.dns_ms, 200, 100);
+      setMeter("web", m.web_ms, 1000, 500);
+
+      var when = new Date(report.time).toLocaleString();
+      latencyHint.textContent = "Live: last checked " + when;
+      notice.textContent = "Live: status, router address, and latency (last checked " + when + "). Everything else is sample data until you add your router login.";
+    }
+
+    function showMessage(text) {
+      notice.textContent = text;
+    }
+
+    function setBusy(isBusy) {
+      checkButton.disabled = isBusy;
+      checkButton.textContent = isBusy ? "Checking..." : "Check now";
+      if (isBusy) {
+        latencyHint.textContent = "Running tests. This takes up to about 30 seconds.";
+      }
+    }
+
+    function loadReport(url, onFail) {
+      return fetch(url)
+        .then(function (response) {
+          if (!response.ok) {
+            throw new Error("No report");
+          }
+          return response.json();
+        })
+        .then(function (report) {
+          if (!report.metrics) {
+            throw new Error("Old report");
+          }
+          showReport(report);
+        })
+        .catch(onFail);
+    }
+
+    function checkNow() {
+      setBusy(true);
+      loadReport("/api/doctor", function () {
+        showMessage("Could not reach the scrtncl engine. Start it with python scrtncl_server.py, then open this page from http://localhost:8000");
+        latencyHint.textContent = "No live results. The data shown is still the sample.";
+      }).then(function () {
+        setBusy(false);
+      });
+    }
+
+    checkButton.addEventListener("click", checkNow);
+
+    // On load, show the last saved results without running new tests.
+    loadReport("/api/results", function () {
+      showMessage("Sample data. Press Check now to run real tests. This needs the engine running (python scrtncl_server.py) and this page opened from http://localhost:8000");
+    });
+  </script>
+
+</body>
+</html>

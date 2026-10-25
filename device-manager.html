@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Device Manager</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+      background-color: #e8edf1;
+      color: #1b2b38;
+      line-height: 1.5;
+      display: grid;
+      grid-template-columns: 1fr;
+    }
+
+    /* ---------- Side navigation ---------- */
+    nav {
+      background-color: #12324a;
+      color: #ffffff;
+      padding: 12px 16px;
+    }
+
+    nav .brand {
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    nav ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    nav a {
+      display: block;
+      padding: 6px 12px;
+      border-radius: 4px;
+      color: #cfdde8;
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
+
+    nav a:hover {
+      background-color: #1d4764;
+    }
+
+    nav a.current {
+      background-color: #ffffff;
+      color: #12324a;
+      font-weight: 600;
+    }
+
+    /* ---------- Page content ---------- */
+    .content {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      min-width: 0;
+    }
+
+    .page-title h1 {
+      margin: 0;
+      font-size: 1.5rem;
+    }
+
+    .page-title p {
+      margin: 4px 0 0 0;
+      color: #5a6e7c;
+    }
+
+    .notice {
+      padding: 10px 16px;
+      background-color: #fff4d6;
+      border: 1px solid #e6cf8a;
+      border-radius: 6px;
+      font-size: 0.85rem;
+    }
+
+    .panel {
+      background-color: #ffffff;
+      border: 1px solid #c3cfd8;
+      border-radius: 6px;
+      padding: 16px;
+      min-width: 0;
+    }
+
+    .panel h2 {
+      margin: 0 0 4px 0;
+      font-size: 1.05rem;
+    }
+
+    .panel .hint {
+      margin: 0 0 12px 0;
+      font-size: 0.85rem;
+      color: #5a6e7c;
+    }
+
+    .ip {
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.9rem;
+    }
+
+    .lower {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+
+    /* ---------- Summary counts ---------- */
+    .summary {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .count {
+      background-color: #ffffff;
+      border: 1px solid #c3cfd8;
+      border-radius: 6px;
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .count strong {
+      font-size: 1.8rem;
+      line-height: 1.2;
+    }
+
+    .count span {
+      font-size: 0.85rem;
+      color: #5a6e7c;
+    }
+
+    .count.problem {
+      border-left: 6px solid #d24545;
+    }
+
+    .count.new {
+      border-left: 6px solid #e0a100;
+    }
+
+    /* ---------- Status dots and badges ---------- */
+    .dot {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background-color: #8a9aa6;
+      flex-shrink: 0;
+    }
+
+    .dot.up { background-color: #34b36b; }
+    .dot.warn { background-color: #e0a100; }
+    .dot.down { background-color: #d24545; }
+
+    .badge {
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 2px 10px;
+      border-radius: 12px;
+      background-color: #dde5eb;
+      color: #3b4f5e;
+      white-space: nowrap;
+    }
+
+    .badge.pass { background-color: #d5f0e0; color: #17613a; }
+    .badge.warn { background-color: #fbecc2; color: #7a5600; }
+
+    /* ---------- Filter form ---------- */
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .field-row {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      flex: 1;
+    }
+
+    label {
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    input[type="text"], select {
+      font: inherit;
+      padding: 8px 10px;
+      border: 1px solid #9fb0bd;
+      border-radius: 4px;
+      background-color: #ffffff;
+      color: #1b2b38;
+      width: 100%;
+    }
+
+    input:focus, select:focus, button:focus {
+      outline: 3px solid #7db5e0;
+      outline-offset: 1px;
+    }
+
+    button {
+      font: inherit;
+      font-weight: 600;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 4px;
+      background-color: #12324a;
+      color: #ffffff;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #1d4764;
+    }
+
+    button.secondary {
+      background-color: #ffffff;
+      color: #12324a;
+      border: 1px solid #12324a;
+    }
+
+    button.small {
+      padding: 4px 12px;
+      font-size: 0.85rem;
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    /* ---------- Table ---------- */
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+      min-width: 720px;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 8px 10px;
+      border-bottom: 1px solid #e3e9ee;
+    }
+
+    th {
+      background-color: #f1f5f8;
+      font-weight: 600;
+    }
+
+    tr.selected td {
+      background-color: #e8f1f8;
+    }
+
+    /* ---------- Detail lists ---------- */
+    .stat-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .stat-list li {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 0;
+      border-bottom: 1px solid #e3e9ee;
+    }
+
+    .stat-list li:last-child {
+      border-bottom: none;
+    }
+
+    .stat-list span:first-child {
+      color: #5a6e7c;
+    }
+
+    .history {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .history li {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      font-size: 0.9rem;
+    }
+
+    .history .dot {
+      margin-top: 6px;
+    }
+
+    .history small {
+      display: block;
+      color: #5a6e7c;
+    }
+
+    /* ---------- New device card ---------- */
+    .unknown {
+      border-left: 6px solid #e0a100;
+      padding: 12px;
+      background-color: #f8fafb;
+      border-radius: 4px;
+      margin-bottom: 12px;
+    }
+
+    .unknown h3 {
+      margin: 0 0 4px 0;
+      font-size: 0.95rem;
+    }
+
+    .unknown p {
+      margin: 0 0 8px 0;
+      font-size: 0.85rem;
+      color: #5a6e7c;
+    }
+
+    button:disabled {
+      background-color: #8a9aa6;
+      border-color: #8a9aa6;
+      color: #ffffff;
+      cursor: wait;
+    }
+
+    select:disabled {
+      background-color: #f1f5f8;
+      color: #5a6e7c;
+    }
+
+    footer {
+      padding: 8px 0;
+      text-align: center;
+      font-size: 0.8rem;
+      color: #5a6e7c;
+    }
+
+    /* ---------- Tablet ---------- */
+    @media (min-width: 700px) {
+      .summary {
+        grid-template-columns: 1fr 1fr 1fr 1fr;
+      }
+
+      .field-row {
+        flex-direction: row;
+      }
+    }
+
+    /* ---------- Wide screens: side menu ---------- */
+    @media (min-width: 900px) {
+      body {
+        grid-template-columns: 220px 1fr;
+        min-height: 100vh;
+      }
+
+      nav {
+        padding: 20px 12px;
+      }
+
+      nav ul {
+        flex-direction: column;
+      }
+
+      .content {
+        padding: 24px;
+      }
+    }
+
+    /* ---------- Desktop: detail beside new devices ---------- */
+    @media (min-width: 1200px) {
+      .lower {
+        grid-template-columns: 3fr 2fr;
+        align-items: start;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <div class="brand">scrtncl</div>
+    <ul>
+      <li><a href="network-dashboard.html">Overview</a></li>
+      <li><a href="network-doctor.html">Network Doctor</a></li>
+      <li><a href="network-map.html">Network Map</a></li>
+      <li><a href="router-center.html">Router Center</a></li>
+      <li><a href="device-manager.html" class="current">Device Manager</a></li>
+      <li><a href="ai-technician.html">AI Technician</a></li>
+      <li><a href="settings.html">Settings</a></li>
+    </ul>
+  </nav>
+
+  <div class="content">
+
+    <div class="page-title">
+      <h1>Device Manager</h1>
+      <p>Every device scrtncl has seen on your network, and how each one is doing.</p>
+    </div>
+
+    <div class="notice" id="notice">
+      Sample data. To scan your real network, start the engine with <span class="ip">python scrtncl_server.py</span> and open this page from <span class="ip">http://localhost:8000</span>.
+    </div>
+
+    <!-- Summary -->
+    <div class="summary">
+      <div class="count">
+        <strong id="count-total">9</strong>
+        <span>Devices seen</span>
+      </div>
+      <div class="count">
+        <strong id="count-online">7</strong>
+        <span>Online now</span>
+      </div>
+      <div class="count problem">
+        <strong id="count-offline">1</strong>
+        <span>Offline</span>
+      </div>
+      <div class="count new">
+        <strong id="count-new">1</strong>
+        <span>New, not yet reviewed</span>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <section class="panel">
+      <h2>Find a device</h2>
+      <p class="hint">Search by name, IP address, or MAC address</p>
+      <form action="#" method="get" id="filter-form">
+        <div class="field-row">
+          <div class="field">
+            <label for="search">Search</label>
+            <input type="text" id="search" name="search" placeholder="Name, IP, or MAC">
+          </div>
+          <div class="field">
+            <label for="group">Group</label>
+            <select id="group" name="group" disabled>
+              <option value="all">Groups come later</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="status">Status</label>
+            <select id="status" name="status">
+              <option value="all">Any status</option>
+              <option value="online">Online</option>
+              <option value="offline">Offline</option>
+              <option value="new">New</option>
+            </select>
+          </div>
+        </div>
+        <div class="button-row">
+          <button type="submit">Apply filters</button>
+          <button type="reset" class="secondary">Clear</button>
+          <button type="button" class="secondary" id="scan-button">Scan network</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Device list -->
+    <section class="panel">
+      <h2>All devices</h2>
+      <p class="hint" id="table-hint">Sample devices. Select a device to see its details.</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Type</th>
+              <th>IP address</th>
+              <th>MAC address</th>
+              <th>Group</th>
+              <th>Last seen</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="device-body">
+            <tr class="selected">
+              <td>NAS</td>
+              <td>Storage</td>
+              <td class="ip">192.168.1.20</td>
+              <td class="ip">A4:5E:60:1B:22:C1</td>
+              <td>Servers</td>
+              <td>Now</td>
+              <td><span class="dot up"></span> Online</td>
+              <td><button type="button" class="small">View</button></td>
+            </tr>
+            <tr>
+              <td>Proxmox host</td>
+              <td>Server</td>
+              <td class="ip">192.168.1.21</td>
+              <td class="ip">B8:27:EB:09:4D:7A</td>
+              <td>Servers</td>
+              <td>Now</td>
+              <td><span class="dot up"></span> Online</td>
+              <td><button type="button" class="small secondary">View</button></td>
+            </tr>
+            <tr>
+              <td>Office printer</td>
+              <td>Printer</td>
+              <td class="ip">192.168.10.40</td>
+              <td class="ip">00:1B:A9:3C:11:F0</td>
+              <td>Front desk</td>
+              <td>Now</td>
+              <td><span class="dot warn"></span> Slow</td>
+              <td><button type="button" class="small secondary">View</button></td>
+            </tr>
+            <tr>
+              <td>Reception PC</td>
+              <td>Computer</td>
+              <td class="ip">192.168.10.12</td>
+              <td class="ip">3C:52:82:A7:90:0E</td>
+              <td>Front desk</td>
+              <td>Now</td>
+              <td><span class="dot up"></span> Online</td>
+              <td><button type="button" class="small secondary">View</button></td>
+            </tr>
+            <tr>
+              <td>Dev laptop</td>
+              <td>Computer</td>
+              <td class="ip">192.168.20.15</td>
+              <td class="ip">F0:18:98:5D:6B:32</td>
+              <td>Engineering</td>
+              <td>Now</td>
+              <td><span class="dot up"></span> Online</td>
+              <td><button type="button" class="small secondary">View</button></td>
+            </tr>
+            <tr>
+              <td>IP camera</td>
+              <td>Camera</td>
+              <td class="ip">192.168.30.5</td>
+              <td class="ip">9C:8E:CD:44:20:B6</td>
+              <td>IoT</td>
+              <td>10 minutes ago</td>
+              <td><span class="dot down"></span> Offline</td>
+              <td><button type="button" class="small secondary">View</button></td>
+            </tr>
+            <tr>
+              <td>Unknown device</td>
+              <td>Unknown</td>
+              <td class="ip">192.168.1.77</td>
+              <td class="ip">DC:A6:32:58:0F:19</td>
+              <td>None</td>
+              <td>Now</td>
+              <td><span class="badge warn">New</span></td>
+              <td><button type="button" class="small secondary">View</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <div class="lower">
+
+      <!-- Device detail -->
+      <section class="panel">
+        <h2 id="detail-title">NAS</h2>
+        <p class="hint" id="detail-hint">Selected device</p>
+        <ul class="stat-list" id="detail-list">
+          <li><span>Status</span><span><span class="dot up"></span> Online</span></li>
+          <li><span>IP address</span><span class="ip">192.168.1.20</span></li>
+          <li><span>MAC address</span><span class="ip">A4:5E:60:1B:22:C1</span></li>
+          <li><span>Hostname</span><span class="ip">nas.local</span></li>
+          <li><span>Group</span><span>Servers</span></li>
+          <li><span>Response time</span><span>2 ms</span></li>
+          <li><span>First seen</span><span>6 months ago</span></li>
+        </ul>
+
+        <h2 style="margin-top: 16px;">History</h2>
+        <p class="hint">What scrtncl has seen of this device</p>
+        <ul class="history" id="history-list">
+          <li>
+            <span class="dot up"></span>
+            <div>Came back online
+              <small>Yesterday, 07:12</small>
+            </div>
+          </li>
+          <li>
+            <span class="dot down"></span>
+            <div>Went offline for 2 hours
+              <small>Yesterday, 05:10</small>
+            </div>
+          </li>
+        </ul>
+      </section>
+
+      <!-- New devices -->
+      <section class="panel">
+        <h2>New devices</h2>
+        <p class="hint" id="new-hint">Devices scrtncl has not seen before (sample)</p>
+        <div id="new-list">
+          <div class="unknown">
+            <h3>Unknown device</h3>
+            <p>
+              <span class="ip">192.168.1.77</span> &middot;
+              <span class="ip">DC:A6:32:58:0F:19</span><br>
+              First seen 15 minutes ago on Wi-Fi 5 GHz
+            </p>
+          </div>
+        </div>
+        <p class="hint">Naming devices, grouping them, and marking them as known come later.</p>
+      </section>
+
+    </div>
+
+    <footer>
+      Use this tool only on networks and routers you own or have permission to manage.
+    </footer>
+
+  </div>
+
+  <script>
+    var notice = document.getElementById("notice");
+    var tableHint = document.getElementById("table-hint");
+    var deviceBody = document.getElementById("device-body");
+    var detailTitle = document.getElementById("detail-title");
+    var detailHint = document.getElementById("detail-hint");
+    var detailList = document.getElementById("detail-list");
+    var historyList = document.getElementById("history-list");
+    var newHint = document.getElementById("new-hint");
+    var newList = document.getElementById("new-list");
+    var scanButton = document.getElementById("scan-button");
+    var filterForm = document.getElementById("filter-form");
+    var searchBox = document.getElementById("search");
+    var statusSelect = document.getElementById("status");
+
+    var devices = [];
+    var selectedId = null;
+    var scanTime = "";
+
+    function makeElement(tag, className, text) {
+      var element = document.createElement(tag);
+      if (className) {
+        element.className = className;
+      }
+      if (text) {
+        element.textContent = text;
+      }
+      return element;
+    }
+
+    function deviceName(device) {
+      return device.hostname || "Unnamed device";
+    }
+
+    function formatTime(iso) {
+      return new Date(iso).toLocaleString();
+    }
+
+    function statusDot(device) {
+      return "dot " + (device.status === "online" ? "up" : "down");
+    }
+
+    function matchesFilters(device) {
+      var text = searchBox.value.trim().toLowerCase();
+      var status = statusSelect.value;
+      if (text) {
+        var haystack = (deviceName(device) + " " + device.ip + " " + (device.mac || "")).toLowerCase();
+        if (haystack.indexOf(text) === -1) {
+          return false;
+        }
+      }
+      if (status === "online" && device.status !== "online") { return false; }
+      if (status === "offline" && device.status !== "offline") { return false; }
+      if (status === "new" && !device.is_new) { return false; }
+      return true;
+    }
+
+    function addRow(container, label, valueNode) {
+      var li = document.createElement("li");
+      li.appendChild(makeElement("span", "", label));
+      li.appendChild(valueNode);
+      container.appendChild(li);
+    }
+
+    function renderCounts() {
+      var online = 0;
+      var newCount = 0;
+      for (var i = 0; i < devices.length; i++) {
+        if (devices[i].status === "online") { online++; }
+        if (devices[i].is_new) { newCount++; }
+      }
+      document.getElementById("count-total").textContent = devices.length;
+      document.getElementById("count-online").textContent = online;
+      document.getElementById("count-offline").textContent = devices.length - online;
+      document.getElementById("count-new").textContent = newCount;
+    }
+
+    function renderTable() {
+      deviceBody.innerHTML = "";
+      var shown = 0;
+      for (var i = 0; i < devices.length; i++) {
+        var device = devices[i];
+        if (!matchesFilters(device)) { continue; }
+        shown++;
+
+        var row = document.createElement("tr");
+        if (device.id === selectedId) {
+          row.className = "selected";
+        }
+        row.appendChild(makeElement("td", "", deviceName(device)));
+        row.appendChild(makeElement("td", "", device.kind));
+        row.appendChild(makeElement("td", "ip", device.ip));
+        row.appendChild(makeElement("td", "ip", device.mac || "Not shown"));
+        row.appendChild(makeElement("td", "", "Not set"));
+        row.appendChild(makeElement("td", "", device.status === "online" ? "Now" : formatTime(device.last_seen)));
+
+        var statusCell = document.createElement("td");
+        statusCell.appendChild(makeElement("span", statusDot(device)));
+        statusCell.appendChild(document.createTextNode(device.status === "online" ? " Online " : " Offline "));
+        if (device.is_new) {
+          statusCell.appendChild(makeElement("span", "badge warn", "New"));
+        }
+        row.appendChild(statusCell);
+
+        var buttonCell = document.createElement("td");
+        var viewButton = makeElement("button", "small" + (device.id === selectedId ? "" : " secondary"), "View");
+        viewButton.type = "button";
+        viewButton.addEventListener("click", makeSelector(device.id));
+        buttonCell.appendChild(viewButton);
+        row.appendChild(buttonCell);
+
+        deviceBody.appendChild(row);
+      }
+      if (shown === 0) {
+        var emptyRow = document.createElement("tr");
+        var emptyCell = makeElement("td", "", "No devices match these filters.");
+        emptyCell.colSpan = 8;
+        emptyRow.appendChild(emptyCell);
+        deviceBody.appendChild(emptyRow);
+      }
+    }
+
+    function makeSelector(id) {
+      return function () {
+        selectedId = id;
+        renderTable();
+        renderDetail();
+      };
+    }
+
+    function renderDetail() {
+      var device = null;
+      for (var i = 0; i < devices.length; i++) {
+        if (devices[i].id === selectedId) { device = devices[i]; }
+      }
+      if (!device) { return; }
+
+      detailTitle.textContent = deviceName(device);
+      detailHint.textContent = device.kind;
+      detailList.innerHTML = "";
+      historyList.innerHTML = "";
+
+      var status = document.createElement("span");
+      status.appendChild(makeElement("span", statusDot(device)));
+      status.appendChild(document.createTextNode(device.status === "online" ? " Online" : " Offline"));
+      addRow(detailList, "Status", status);
+      addRow(detailList, "IP address", makeElement("span", "ip", device.ip));
+      addRow(detailList, "MAC address", makeElement("span", "ip", device.mac || "Not shown"));
+      addRow(detailList, "Name", makeElement("span", "ip", device.hostname || "Not shared by the device"));
+      addRow(detailList, "Group", makeElement("span", "", "Not set"));
+      addRow(detailList, "Response time", makeElement("span", "",
+        device.status !== "online" ? "Offline" : device.ping_ms === null ? "No reply to ping" : device.ping_ms + " ms"));
+      if (device.private_mac) {
+        addRow(detailList, "Private MAC address", makeElement("span", "", "Yes. Phones often hide their real address, so it can change."));
+      }
+
+      var firstSeen = document.createElement("li");
+      firstSeen.appendChild(makeElement("span", "dot up"));
+      var firstText = document.createElement("div");
+      firstText.appendChild(document.createTextNode("First seen"));
+      firstText.appendChild(makeElement("small", "", formatTime(device.first_seen)));
+      firstSeen.appendChild(firstText);
+      historyList.appendChild(firstSeen);
+
+      var lastSeen = document.createElement("li");
+      lastSeen.appendChild(makeElement("span", statusDot(device)));
+      var lastText = document.createElement("div");
+      lastText.appendChild(document.createTextNode(device.status === "online" ? "Seen in the latest scan" : "Not seen in the latest scan"));
+      lastText.appendChild(makeElement("small", "", "Last seen " + formatTime(device.last_seen)));
+      lastSeen.appendChild(lastText);
+      historyList.appendChild(lastSeen);
+    }
+
+    function renderNew() {
+      newList.innerHTML = "";
+      var count = 0;
+      for (var i = 0; i < devices.length; i++) {
+        var device = devices[i];
+        if (!device.is_new) { continue; }
+        count++;
+        var card = makeElement("div", "unknown");
+        card.appendChild(makeElement("h3", "", deviceName(device)));
+        var details = document.createElement("p");
+        details.appendChild(makeElement("span", "ip", device.ip));
+        details.appendChild(document.createTextNode(" \u00b7 "));
+        details.appendChild(makeElement("span", "ip", device.mac || "Not shown"));
+        details.appendChild(document.createElement("br"));
+        details.appendChild(document.createTextNode("First seen " + formatTime(device.first_seen)));
+        card.appendChild(details);
+        newList.appendChild(card);
+      }
+      if (count === 0) {
+        newList.appendChild(makeElement("p", "hint", "No new devices. Devices found on your first scan are treated as already known."));
+      }
+    }
+
+    function showReport(report) {
+      devices = report.devices;
+      scanTime = formatTime(report.time);
+      if (selectedId === null || !devices.some(function (d) { return d.id === selectedId; })) {
+        selectedId = devices.length > 0 ? devices[0].id : null;
+      }
+      renderCounts();
+      renderTable();
+      renderDetail();
+      renderNew();
+      tableHint.textContent = "Live: " + devices.length + " devices on " + report.network + ", last scanned " + scanTime + ". Select a device to see its details.";
+      newHint.textContent = "Devices scrtncl has not seen before, in the last 7 days";
+      notice.textContent = "Live: devices from the last scan (" + scanTime + "). Press Scan network to scan again.";
+    }
+
+    function showMessage(text) {
+      notice.textContent = text;
+    }
+
+    function setBusy(isBusy) {
+      scanButton.disabled = isBusy;
+      scanButton.textContent = isBusy ? "Scanning..." : "Scan network";
+      if (isBusy) {
+        tableHint.textContent = "Scanning your network. This takes about 10 to 30 seconds.";
+      }
+    }
+
+    function loadReport(url, onFail) {
+      return fetch(url)
+        .then(function (response) {
+          return response.json().then(function (data) {
+            if (!response.ok) {
+              throw new Error(data.error || "No report");
+            }
+            return data;
+          });
+        })
+        .then(showReport)
+        .catch(onFail);
+    }
+
+    function scanNow() {
+      setBusy(true);
+      loadReport("/api/scan", function (error) {
+        showMessage("Could not scan: " + error.message + " (the engine must be running: python scrtncl_server.py, with this page opened from http://localhost:8000)");
+        tableHint.textContent = "No live results. The data shown is still the sample.";
+      }).then(function () {
+        setBusy(false);
+      });
+    }
+
+    scanButton.addEventListener("click", scanNow);
+
+    filterForm.addEventListener("submit", function (event) {
+      event.preventDefault();
+      if (devices.length > 0) {
+        renderTable();
+      }
+    });
+
+    filterForm.addEventListener("reset", function () {
+      setTimeout(function () {
+        if (devices.length > 0) {
+          renderTable();
+        }
+      }, 0);
+    });
+
+    // On load, show the last saved scan without scanning again.
+    loadReport("/api/devices", function () {
+      showMessage("Sample data. Press Scan network to find the real devices on your network. This needs the engine running (python scrtncl_server.py) and this page opened from http://localhost:8000");
+    });
+  </script>
+
+</body>
+</html>

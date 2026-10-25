@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Settings</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+      background-color: #e8edf1;
+      color: #1b2b38;
+      line-height: 1.5;
+      display: grid;
+      grid-template-columns: 1fr;
+    }
+
+    /* ---------- Side navigation ---------- */
+    nav {
+      background-color: #12324a;
+      color: #ffffff;
+      padding: 12px 16px;
+    }
+
+    nav .brand {
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    nav ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    nav a {
+      display: block;
+      padding: 6px 12px;
+      border-radius: 4px;
+      color: #cfdde8;
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
+
+    nav a:hover {
+      background-color: #1d4764;
+    }
+
+    nav a.current {
+      background-color: #ffffff;
+      color: #12324a;
+      font-weight: 600;
+    }
+
+    /* ---------- Page content ---------- */
+    .content {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      min-width: 0;
+    }
+
+    .page-title h1 {
+      margin: 0;
+      font-size: 1.5rem;
+    }
+
+    .page-title p {
+      margin: 4px 0 0 0;
+      color: #5a6e7c;
+    }
+
+    .notice {
+      padding: 10px 16px;
+      background-color: #fff4d6;
+      border: 1px solid #e6cf8a;
+      border-radius: 6px;
+      font-size: 0.85rem;
+    }
+
+    .panel {
+      background-color: #ffffff;
+      border: 1px solid #c3cfd8;
+      border-radius: 6px;
+      padding: 16px;
+      min-width: 0;
+    }
+
+    .panel h2 {
+      margin: 0 0 4px 0;
+      font-size: 1.05rem;
+    }
+
+    .panel .hint {
+      margin: 0 0 12px 0;
+      font-size: 0.85rem;
+      color: #5a6e7c;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+
+    .ip {
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.9rem;
+    }
+
+    /* ---------- Forms ---------- */
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    fieldset {
+      border: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    legend {
+      font-size: 0.85rem;
+      font-weight: 600;
+      padding: 0;
+      margin-bottom: 6px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    label {
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    select, input[type="text"] {
+      font: inherit;
+      padding: 8px 10px;
+      border: 1px solid #9fb0bd;
+      border-radius: 4px;
+      background-color: #ffffff;
+      color: #1b2b38;
+      width: 100%;
+    }
+
+    /* Checkbox and radio rows */
+    .option {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-weight: 400;
+      font-size: 0.9rem;
+    }
+
+    .option input {
+      width: 18px;
+      height: 18px;
+      margin-top: 3px;
+      flex-shrink: 0;
+    }
+
+    .option small {
+      display: block;
+      color: #5a6e7c;
+      font-size: 0.8rem;
+    }
+
+    input:focus, select:focus, button:focus {
+      outline: 3px solid #7db5e0;
+      outline-offset: 1px;
+    }
+
+    button {
+      font: inherit;
+      font-weight: 600;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 4px;
+      background-color: #12324a;
+      color: #ffffff;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #1d4764;
+    }
+
+    button.secondary {
+      background-color: #ffffff;
+      color: #12324a;
+      border: 1px solid #12324a;
+    }
+
+    button.danger {
+      background-color: #ffffff;
+      color: #8a2222;
+      border: 1px solid #8a2222;
+    }
+
+    button.small {
+      padding: 4px 12px;
+      font-size: 0.85rem;
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    /* ---------- Lists and tables ---------- */
+    .stat-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .stat-list li {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 0;
+      border-bottom: 1px solid #e3e9ee;
+    }
+
+    .stat-list li:last-child {
+      border-bottom: none;
+    }
+
+    .stat-list span:first-child {
+      color: #5a6e7c;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+      min-width: 560px;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 8px 10px;
+      border-bottom: 1px solid #e3e9ee;
+    }
+
+    th {
+      background-color: #f1f5f8;
+      font-weight: 600;
+    }
+
+    .dot {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background-color: #8a9aa6;
+    }
+
+    .dot.up { background-color: #34b36b; }
+
+    .badge {
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 2px 10px;
+      border-radius: 12px;
+      background-color: #dde5eb;
+      color: #3b4f5e;
+      white-space: nowrap;
+    }
+
+    .badge.pass { background-color: #d5f0e0; color: #17613a; }
+
+    .save-bar {
+      background-color: #ffffff;
+      border: 1px solid #c3cfd8;
+      border-radius: 6px;
+      padding: 12px 16px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .save-bar p {
+      margin: 0;
+      font-size: 0.85rem;
+      color: #5a6e7c;
+    }
+
+    footer {
+      padding: 8px 0;
+      text-align: center;
+      font-size: 0.8rem;
+      color: #5a6e7c;
+    }
+
+    /* ---------- Tablet ---------- */
+    @media (min-width: 700px) {
+      .grid-2 {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    /* ---------- Wide screens: side menu ---------- */
+    @media (min-width: 900px) {
+      body {
+        grid-template-columns: 220px 1fr;
+        min-height: 100vh;
+      }
+
+      nav {
+        padding: 20px 12px;
+      }
+
+      nav ul {
+        flex-direction: column;
+      }
+
+      .content {
+        padding: 24px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <div class="brand">scrtncl</div>
+    <ul>
+      <li><a href="network-dashboard.html">Overview</a></li>
+      <li><a href="network-doctor.html">Network Doctor</a></li>
+      <li><a href="network-map.html">Network Map</a></li>
+      <li><a href="router-center.html">Router Center</a></li>
+      <li><a href="device-manager.html">Device Manager</a></li>
+      <li><a href="ai-technician.html">AI Technician</a></li>
+      <li><a href="settings.html" class="current">Settings</a></li>
+    </ul>
+  </nav>
+
+  <div class="content">
+
+    <div class="page-title">
+      <h1>Settings</h1>
+      <p>Choose how scrtncl looks, what it can do, and what it is allowed to share.</p>
+    </div>
+
+    <div class="notice">
+      Sample screen only. Nothing you choose here is saved yet.
+    </div>
+
+    <form action="#" method="post">
+
+      <div class="grid-2">
+
+        <!-- Experience -->
+        <section class="panel">
+          <h2>Experience</h2>
+          <p class="hint">How much detail scrtncl shows</p>
+          <fieldset>
+            <legend>Mode</legend>
+            <label class="option" for="mode-simple">
+              <input type="radio" id="mode-simple" name="mode" value="simple" checked>
+              <span>Simple<small>Plain explanations and one-click fixes to review. Good for home use.</small></span>
+            </label>
+            <label class="option" for="mode-tech">
+              <input type="radio" id="mode-tech" name="mode" value="technician">
+              <span>Technician<small>Full logs, raw test output, and extra detail on every result.</small></span>
+            </label>
+          </fieldset>
+          <div class="field" style="margin-top: 14px;">
+            <label for="workspace">Network type</label>
+            <select id="workspace" name="workspace">
+              <option value="home">Home lab</option>
+              <option value="office">Small office</option>
+            </select>
+          </div>
+        </section>
+
+        <!-- Safety -->
+        <section class="panel">
+          <h2>Safety</h2>
+          <p class="hint">Rules scrtncl follows before it touches anything</p>
+          <fieldset>
+            <legend>Before any change</legend>
+            <label class="option" for="safe-readonly">
+              <input type="checkbox" id="safe-readonly" name="readonly" checked>
+              <span>Read only by default<small>Tests only look. They never change settings.</small></span>
+            </label>
+            <label class="option" for="safe-confirm">
+              <input type="checkbox" id="safe-confirm" name="confirm" checked>
+              <span>Ask me before every change<small>You see the plan and approve it first.</small></span>
+            </label>
+            <label class="option" for="safe-backup">
+              <input type="checkbox" id="safe-backup" name="backup" checked>
+              <span>Back up the router first<small>Needed for higher-risk changes.</small></span>
+            </label>
+            <label class="option" for="safe-verify">
+              <input type="checkbox" id="safe-verify" name="verify" checked>
+              <span>Run a check after each change<small>Roll back if the check fails.</small></span>
+            </label>
+          </fieldset>
+        </section>
+
+      </div>
+
+      <div class="grid-2">
+
+        <!-- Privacy -->
+        <section class="panel">
+          <h2>Privacy</h2>
+          <p class="hint">What the AI Technician is allowed to see</p>
+          <fieldset>
+            <legend>Shared with the AI</legend>
+            <label class="option" for="priv-results">
+              <input type="checkbox" id="priv-results" name="results" checked>
+              <span>Test results<small>Pass or fail, speeds, and error counts.</small></span>
+            </label>
+            <label class="option" for="priv-logs">
+              <input type="checkbox" id="priv-logs" name="logs">
+              <span>Router log lines<small>Passwords and personal details are removed first.</small></span>
+            </label>
+            <label class="option" for="priv-packets">
+              <input type="checkbox" id="priv-packets" name="packets" disabled>
+              <span>Packet contents<small>Always excluded.</small></span>
+            </label>
+          </fieldset>
+          <fieldset style="margin-top: 14px;">
+            <legend>Where the AI runs</legend>
+            <label class="option" for="ai-cloud">
+              <input type="radio" id="ai-cloud" name="ai" value="cloud" checked>
+              <span>Online AI service<small>Sends only the details you allowed above.</small></span>
+            </label>
+            <label class="option" for="ai-local">
+              <input type="radio" id="ai-local" name="ai" value="local">
+              <span>On this computer only<small>Nothing leaves your network. Slower and less capable.</small></span>
+            </label>
+          </fieldset>
+        </section>
+
+        <!-- Alerts -->
+        <section class="panel">
+          <h2>Alerts</h2>
+          <p class="hint">When scrtncl should tell you something</p>
+          <fieldset>
+            <legend>Alert me when</legend>
+            <label class="option" for="alert-offline">
+              <input type="checkbox" id="alert-offline" name="offline" checked>
+              <span>A device goes offline</span>
+            </label>
+            <label class="option" for="alert-new">
+              <input type="checkbox" id="alert-new" name="new-device" checked>
+              <span>A new device joins the network</span>
+            </label>
+            <label class="option" for="alert-wan">
+              <input type="checkbox" id="alert-wan" name="wan" checked>
+              <span>The internet connection drops</span>
+            </label>
+            <label class="option" for="alert-firmware">
+              <input type="checkbox" id="alert-firmware" name="firmware">
+              <span>A router firmware update is available</span>
+            </label>
+          </fieldset>
+          <div class="field" style="margin-top: 14px;">
+            <label for="loss">Packet loss warning level</label>
+            <select id="loss" name="loss">
+              <option value="1">Above 1%</option>
+              <option value="2">Above 2%</option>
+              <option value="5">Above 5%</option>
+            </select>
+          </div>
+          <div class="field" style="margin-top: 10px;">
+            <label for="interval">Check the network every</label>
+            <select id="interval" name="interval">
+              <option value="1">1 minute</option>
+              <option value="5" selected>5 minutes</option>
+              <option value="15">15 minutes</option>
+              <option value="60">1 hour</option>
+            </select>
+          </div>
+        </section>
+
+      </div>
+
+      <div class="save-bar">
+        <p>Changes apply after you save.</p>
+        <div class="button-row">
+          <button type="submit">Save settings</button>
+          <button type="reset" class="secondary">Reset</button>
+        </div>
+      </div>
+
+    </form>
+
+    <!-- Agent -->
+    <section class="panel">
+      <h2>Agent</h2>
+      <p class="hint">The program on your computer that runs the real tests</p>
+      <ul class="stat-list">
+        <li><span>Status</span><span><span class="dot up"></span> Running</span></li>
+        <li><span>Name</span><span>Home PC</span></li>
+        <li><span>Version</span><span>0.1.0 (sample)</span></li>
+        <li><span>Works without internet</span><span class="badge pass">Yes</span></li>
+        <li><span>Last check-in</span><span>1 minute ago</span></li>
+      </ul>
+      <div class="button-row" style="margin-top: 12px;">
+        <button type="button" class="secondary">Restart agent</button>
+        <button type="button" class="danger">Remove this agent</button>
+      </div>
+    </section>
+
+    <!-- Saved logins -->
+    <section class="panel">
+      <h2>Saved router logins</h2>
+      <p class="hint">Passwords are never shown here. They would be kept in a secure vault.</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Address</th>
+              <th>Connects with</th>
+              <th>Last used</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Main router</td>
+              <td class="ip">192.168.1.1</td>
+              <td>SSH</td>
+              <td>Today</td>
+              <td><button type="button" class="danger small">Remove</button></td>
+            </tr>
+            <tr>
+              <td>Office switch</td>
+              <td class="ip">192.168.10.2</td>
+              <td>SNMP</td>
+              <td>3 days ago</td>
+              <td><button type="button" class="danger small">Remove</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="button-row" style="margin-top: 12px;">
+        <button type="button" class="secondary">Add a login</button>
+      </div>
+    </section>
+
+    <!-- Integrations -->
+    <section class="panel">
+      <h2>Router types scrtncl can work with</h2>
+      <p class="hint">Each type has its own connector. More can be added later.</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Router type</th>
+              <th>How it connects</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>OpenWrt</td>
+              <td>Router API</td>
+              <td><span class="badge">Planned</span></td>
+            </tr>
+            <tr>
+              <td>MikroTik RouterOS</td>
+              <td>Router API</td>
+              <td><span class="badge">Planned</span></td>
+            </tr>
+            <tr>
+              <td>UniFi gateways</td>
+              <td>Router API</td>
+              <td><span class="badge">Planned</span></td>
+            </tr>
+            <tr>
+              <td>Other routers</td>
+              <td>SNMP (read only)</td>
+              <td><span class="badge pass">Sample: in use</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer>
+      Use this tool only on networks and routers you own or have permission to manage.
+    </footer>
+
+  </div>
+
+</body>
+</html>

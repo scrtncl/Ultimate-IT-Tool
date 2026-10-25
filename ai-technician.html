@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI Technician</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+      background-color: #e8edf1;
+      color: #1b2b38;
+      line-height: 1.5;
+      display: grid;
+      grid-template-columns: 1fr;
+    }
+
+    /* ---------- Side navigation ---------- */
+    nav {
+      background-color: #12324a;
+      color: #ffffff;
+      padding: 12px 16px;
+    }
+
+    nav .brand {
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    nav ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    nav a {
+      display: block;
+      padding: 6px 12px;
+      border-radius: 4px;
+      color: #cfdde8;
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
+
+    nav a:hover {
+      background-color: #1d4764;
+    }
+
+    nav a.current {
+      background-color: #ffffff;
+      color: #12324a;
+      font-weight: 600;
+    }
+
+    /* ---------- Page content ---------- */
+    .content {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      min-width: 0;
+    }
+
+    .page-title h1 {
+      margin: 0;
+      font-size: 1.5rem;
+    }
+
+    .page-title p {
+      margin: 4px 0 0 0;
+      color: #5a6e7c;
+    }
+
+    .notice {
+      padding: 10px 16px;
+      background-color: #fff4d6;
+      border: 1px solid #e6cf8a;
+      border-radius: 6px;
+      font-size: 0.85rem;
+    }
+
+    .panel {
+      background-color: #ffffff;
+      border: 1px solid #c3cfd8;
+      border-radius: 6px;
+      padding: 16px;
+      min-width: 0;
+    }
+
+    .panel h2 {
+      margin: 0 0 4px 0;
+      font-size: 1.05rem;
+    }
+
+    .panel .hint {
+      margin: 0 0 12px 0;
+      font-size: 0.85rem;
+      color: #5a6e7c;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+
+    .ip {
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.9rem;
+    }
+
+    /* ---------- Chat ---------- */
+    .chat {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .message {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      max-width: 92%;
+    }
+
+    .message .who {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #5a6e7c;
+    }
+
+    .bubble {
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 0.95rem;
+    }
+
+    .bubble p {
+      margin: 0 0 8px 0;
+    }
+
+    .bubble p:last-child {
+      margin-bottom: 0;
+    }
+
+    .bubble ul {
+      margin: 0 0 8px 0;
+      padding-left: 20px;
+    }
+
+    .message.user {
+      align-self: flex-end;
+      align-items: flex-end;
+    }
+
+    .message.user .bubble {
+      background-color: #12324a;
+      color: #ffffff;
+    }
+
+    .message.assistant {
+      align-self: flex-start;
+    }
+
+    .message.assistant .bubble {
+      background-color: #f1f5f8;
+      border: 1px solid #c3cfd8;
+    }
+
+    .working {
+      font-size: 0.85rem;
+      color: #5a6e7c;
+      font-style: italic;
+    }
+
+    /* ---------- Quick questions ---------- */
+    .quick {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    /* ---------- Forms ---------- */
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    label {
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    textarea {
+      font: inherit;
+      padding: 8px 10px;
+      border: 1px solid #9fb0bd;
+      border-radius: 4px;
+      background-color: #ffffff;
+      color: #1b2b38;
+      width: 100%;
+      resize: vertical;
+    }
+
+    textarea:focus, button:focus {
+      outline: 3px solid #7db5e0;
+      outline-offset: 1px;
+    }
+
+    button {
+      font: inherit;
+      font-weight: 600;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 4px;
+      background-color: #12324a;
+      color: #ffffff;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #1d4764;
+    }
+
+    button.secondary {
+      background-color: #ffffff;
+      color: #12324a;
+      border: 1px solid #12324a;
+    }
+
+    button.small {
+      padding: 4px 12px;
+      font-size: 0.85rem;
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    /* ---------- Badges and dots ---------- */
+    .dot {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background-color: #8a9aa6;
+      flex-shrink: 0;
+    }
+
+    .dot.up { background-color: #34b36b; }
+    .dot.warn { background-color: #e0a100; }
+    .dot.down { background-color: #d24545; }
+
+    .badge {
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 2px 10px;
+      border-radius: 12px;
+      background-color: #dde5eb;
+      color: #3b4f5e;
+      white-space: nowrap;
+    }
+
+    .badge.pass { background-color: #d5f0e0; color: #17613a; }
+    .badge.warn { background-color: #fbecc2; color: #7a5600; }
+
+    /* ---------- Findings ---------- */
+    .finding {
+      margin: 0 0 12px 0;
+      padding: 10px 12px;
+      background-color: #f1f5f8;
+      border-radius: 4px;
+    }
+
+    .finding h3 {
+      margin: 0 0 4px 0;
+      font-size: 0.95rem;
+    }
+
+    .finding p, .finding ul, .finding ol {
+      margin: 0;
+      font-size: 0.9rem;
+    }
+
+    .finding ul, .finding ol {
+      padding-left: 20px;
+    }
+
+    .finding.main {
+      border-left: 6px solid #e0a100;
+    }
+
+    .confidence {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .bar {
+      flex: 1;
+      height: 10px;
+      background-color: #dde5eb;
+      border-radius: 5px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      background-color: #e0a100;
+    }
+
+    .stat-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .stat-list li {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 6px 0;
+      border-bottom: 1px solid #e3e9ee;
+      font-size: 0.9rem;
+    }
+
+    .stat-list li:last-child {
+      border-bottom: none;
+    }
+
+    .side {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      min-width: 0;
+    }
+
+    footer {
+      padding: 8px 0;
+      text-align: center;
+      font-size: 0.8rem;
+      color: #5a6e7c;
+    }
+
+    /* ---------- Wide screens: side menu ---------- */
+    @media (min-width: 900px) {
+      body {
+        grid-template-columns: 220px 1fr;
+        min-height: 100vh;
+      }
+
+      nav {
+        padding: 20px 12px;
+      }
+
+      nav ul {
+        flex-direction: column;
+      }
+
+      .content {
+        padding: 24px;
+      }
+    }
+
+    /* ---------- Desktop: chat beside findings ---------- */
+    @media (min-width: 1200px) {
+      .layout {
+        grid-template-columns: 3fr 2fr;
+        align-items: start;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <div class="brand">scrtncl</div>
+    <ul>
+      <li><a href="network-dashboard.html">Overview</a></li>
+      <li><a href="network-doctor.html">Network Doctor</a></li>
+      <li><a href="network-map.html">Network Map</a></li>
+      <li><a href="router-center.html">Router Center</a></li>
+      <li><a href="device-manager.html">Device Manager</a></li>
+      <li><a href="ai-technician.html" class="current">AI Technician</a></li>
+      <li><a href="settings.html">Settings</a></li>
+    </ul>
+  </nav>
+
+  <div class="content">
+
+    <div class="page-title">
+      <h1>AI Technician</h1>
+      <p>Ask a question about your network. The answer comes from real test results, and shows what is still unknown.</p>
+    </div>
+
+    <div class="notice">
+      Sample conversation only. No AI is connected yet, and every result below is made up.
+    </div>
+
+    <div class="layout">
+
+      <!-- Chat -->
+      <section class="panel">
+        <h2>Conversation</h2>
+        <p class="hint">The technician can run read-only tests. It cannot change anything by itself.</p>
+
+        <div class="chat">
+
+          <div class="message user">
+            <span class="who">You</span>
+            <div class="bubble">
+              <p>Why does my Wi-Fi disconnect every 10 minutes?</p>
+            </div>
+          </div>
+
+          <div class="message assistant">
+            <span class="who">Technician</span>
+            <div class="bubble">
+              <p class="working">Ran 4 read-only checks: Wi-Fi link, router logs, interface counters, signal strength.</p>
+              <p>Your internet connection looks healthy, so the problem is probably on the Wi-Fi side. Here is what the tests showed:</p>
+              <ul>
+                <li>Your laptop's signal is strong (-48 dBm).</li>
+                <li>The router's 2.4 GHz Wi-Fi shows 212 errors and a high retry rate on channel 6.</li>
+                <li>Your laptop dropped off the Wi-Fi 3 times in the last 30 minutes.</li>
+              </ul>
+              <p>The most likely cause is interference or crowding on channel 6. I can't confirm that yet, because I haven't scanned for nearby networks. The findings panel lists what I'd test next.</p>
+            </div>
+          </div>
+
+          <div class="message user">
+            <span class="who">You</span>
+            <div class="bubble">
+              <p>Can you just fix it?</p>
+            </div>
+          </div>
+
+          <div class="message assistant">
+            <span class="who">Technician</span>
+            <div class="bubble">
+              <p>I can prepare a plan, but I can't change your router on my own. Changing the Wi-Fi channel is a higher-risk change, so it needs your approval and a backup first. I'd suggest running the channel scan before choosing a channel. Open Router Center to review the plan when you're ready.</p>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="quick">
+          <button type="button" class="secondary small">Scan Wi-Fi channels</button>
+          <button type="button" class="secondary small">Compare wired and wireless</button>
+          <button type="button" class="secondary small">Check disconnect times</button>
+        </div>
+
+        <form action="#" method="post">
+          <label for="question">Ask a question</label>
+          <textarea id="question" name="question" rows="3" placeholder="Why is my internet slow in the evening?"></textarea>
+          <div class="button-row">
+            <button type="submit">Send</button>
+            <button type="reset" class="secondary">Clear</button>
+          </div>
+        </form>
+      </section>
+
+      <!-- Findings -->
+      <div class="side">
+
+        <section class="panel">
+          <h2>Findings</h2>
+          <p class="hint">Facts, likely causes, and unknowns are kept apart</p>
+
+          <div class="finding">
+            <h3>What was measured</h3>
+            <ul>
+              <li>Internet, DNS, and router checks pass</li>
+              <li>2.4 GHz Wi-Fi: 212 errors, high retry rate on channel 6</li>
+              <li>Laptop signal -48 dBm (strong)</li>
+              <li>3 Wi-Fi drops in 30 minutes</li>
+            </ul>
+          </div>
+
+          <div class="finding main">
+            <h3>Most likely cause</h3>
+            <p>Interference or crowding on 2.4 GHz channel 6.</p>
+            <div class="confidence">
+              <span class="badge warn">Medium</span>
+              <div class="bar"><div class="bar-fill" style="width: 55%;"></div></div>
+            </div>
+            <p style="margin-top: 6px; color: #5a6e7c;">Based on test results only. It goes up or down as more tests run.</p>
+          </div>
+
+          <div class="finding">
+            <h3>Other possibilities</h3>
+            <ul>
+              <li>A power-saving setting on the laptop's Wi-Fi adapter</li>
+              <li>Router restarting the Wi-Fi radio (nothing in the logs shows this)</li>
+            </ul>
+          </div>
+
+          <div class="finding">
+            <h3>Not verified</h3>
+            <p>Nearby networks, the exact time of each drop, and the laptop's adapter settings.</p>
+          </div>
+
+          <div class="finding">
+            <h3>Recommended tests</h3>
+            <ol>
+              <li>Scan Wi-Fi channels for crowding</li>
+              <li>Test the same laptop on a wired cable</li>
+              <li>Line up the drop times with the router log</li>
+            </ol>
+          </div>
+
+          <div class="finding">
+            <h3>Possible fix (not applied)</h3>
+            <p>Move 2.4 GHz Wi-Fi to a less crowded channel. Medium to high risk: needs a backup, your approval, and a rollback plan.</p>
+          </div>
+
+          <div class="button-row">
+            <button type="button">Review plan in Router Center</button>
+            <button type="button" class="secondary">Save report</button>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Checks it ran</h2>
+          <p class="hint">Only allowed, read-only checks</p>
+          <ul class="stat-list">
+            <li><span>Wi-Fi link status</span><span class="badge pass">Read only</span></li>
+            <li><span>Router logs</span><span class="badge pass">Read only</span></li>
+            <li><span>Interface counters</span><span class="badge pass">Read only</span></li>
+            <li><span>Signal strength</span><span class="badge pass">Read only</span></li>
+            <li><span>Change router settings</span><span class="badge">Never automatic</span></li>
+          </ul>
+        </section>
+
+        <section class="panel">
+          <h2>Privacy</h2>
+          <p class="hint">What the AI is allowed to see</p>
+          <ul class="stat-list">
+            <li><span>Router passwords</span><span class="badge">Never shared</span></li>
+            <li><span>Packet contents</span><span class="badge">Excluded</span></li>
+            <li><span>Test results</span><span class="badge pass">Shared</span></li>
+          </ul>
+        </section>
+
+      </div>
+
+    </div>
+
+    <footer>
+      Use this tool only on networks and routers you own or have permission to manage.
+    </footer>
+
+  </div>
+
+</body>
+</html>

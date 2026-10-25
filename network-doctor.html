@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Network Doctor</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+      background-color: #e8edf1;
+      color: #1b2b38;
+      line-height: 1.5;
+      display: grid;
+      grid-template-columns: 1fr;
+    }
+
+    /* ---------- Side navigation ---------- */
+    nav {
+      background-color: #12324a;
+      color: #ffffff;
+      padding: 12px 16px;
+    }
+
+    nav .brand {
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    nav ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    nav a {
+      display: block;
+      padding: 6px 12px;
+      border-radius: 4px;
+      color: #cfdde8;
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
+
+    nav a:hover {
+      background-color: #1d4764;
+    }
+
+    nav a.current {
+      background-color: #ffffff;
+      color: #12324a;
+      font-weight: 600;
+    }
+
+    /* ---------- Page content ---------- */
+    .content {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      min-width: 0;
+    }
+
+    .page-title h1 {
+      margin: 0;
+      font-size: 1.5rem;
+    }
+
+    .page-title p {
+      margin: 4px 0 0 0;
+      color: #5a6e7c;
+    }
+
+    .notice {
+      padding: 10px 16px;
+      background-color: #fff4d6;
+      border: 1px solid #e6cf8a;
+      border-radius: 6px;
+      font-size: 0.85rem;
+    }
+
+    .panel {
+      background-color: #ffffff;
+      border: 1px solid #c3cfd8;
+      border-radius: 6px;
+      padding: 16px;
+      min-width: 0;
+    }
+
+    .panel h2 {
+      margin: 0 0 4px 0;
+      font-size: 1.05rem;
+    }
+
+    .panel .hint {
+      margin: 0 0 12px 0;
+      font-size: 0.85rem;
+      color: #5a6e7c;
+    }
+
+    /* ---------- Run form ---------- */
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .field-row {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      flex: 1;
+    }
+
+    label {
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    select {
+      font: inherit;
+      padding: 8px 10px;
+      border: 1px solid #9fb0bd;
+      border-radius: 4px;
+      background-color: #ffffff;
+      color: #1b2b38;
+      width: 100%;
+    }
+
+    .check-line {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 400;
+      font-size: 0.9rem;
+    }
+
+    .check-line input {
+      width: 18px;
+      height: 18px;
+    }
+
+    select:focus, button:focus, input:focus {
+      outline: 3px solid #7db5e0;
+      outline-offset: 1px;
+    }
+
+    button {
+      font: inherit;
+      font-weight: 600;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 4px;
+      background-color: #12324a;
+      color: #ffffff;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #1d4764;
+    }
+
+    /* ---------- Status dots ---------- */
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background-color: #8a9aa6;
+      flex-shrink: 0;
+    }
+
+    .dot.up { background-color: #34b36b; }
+    .dot.warn { background-color: #e0a100; }
+    .dot.down { background-color: #d24545; }
+
+    /* ---------- Test and results layout ---------- */
+    .results {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+
+    .stages {
+      list-style: decimal;
+      margin: 0;
+      padding-left: 24px;
+    }
+
+    .stages li {
+      padding: 10px 0;
+      border-bottom: 1px solid #e3e9ee;
+    }
+
+    .stages li:last-child {
+      border-bottom: none;
+    }
+
+    .stage-top {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .stage-name {
+      font-weight: 600;
+      flex: 1;
+    }
+
+    .badge {
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 2px 10px;
+      border-radius: 12px;
+      background-color: #dde5eb;
+      color: #3b4f5e;
+    }
+
+    .badge.pass { background-color: #d5f0e0; color: #17613a; }
+    .badge.fail { background-color: #f8d9d9; color: #8a2222; }
+    .badge.skip { background-color: #e6eaee; color: #5a6e7c; }
+
+    .stage-detail {
+      margin: 4px 0 0 22px;
+      font-size: 0.85rem;
+      color: #5a6e7c;
+    }
+
+    /* ---------- Diagnosis box ---------- */
+    .diagnosis {
+      border-left: 6px solid #d24545;
+    }
+
+    .finding {
+      margin: 0 0 12px 0;
+      padding: 10px 12px;
+      background-color: #f1f5f8;
+      border-radius: 4px;
+    }
+
+    .finding h3 {
+      margin: 0 0 4px 0;
+      font-size: 0.95rem;
+    }
+
+    .finding p, .finding ul {
+      margin: 0;
+      font-size: 0.9rem;
+    }
+
+    .finding ul {
+      padding-left: 20px;
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    button.secondary {
+      background-color: #ffffff;
+      color: #12324a;
+      border: 1px solid #12324a;
+    }
+
+    .badge.warn { background-color: #fbecc2; color: #7a5600; }
+
+    .diagnosis.ok { border-left-color: #34b36b; }
+    .diagnosis.warn { border-left-color: #e0a100; }
+
+    button:disabled {
+      background-color: #8a9aa6;
+      cursor: wait;
+    }
+
+    /* ---------- Decision table ---------- */
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+      min-width: 600px;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 8px 10px;
+      border-bottom: 1px solid #e3e9ee;
+      vertical-align: top;
+    }
+
+    th {
+      background-color: #f1f5f8;
+      font-weight: 600;
+    }
+
+    footer {
+      padding: 8px 0;
+      text-align: center;
+      font-size: 0.8rem;
+      color: #5a6e7c;
+    }
+
+    /* ---------- Tablet and up: side navigation ---------- */
+    @media (min-width: 900px) {
+      body {
+        grid-template-columns: 220px 1fr;
+        min-height: 100vh;
+      }
+
+      nav {
+        padding: 20px 12px;
+      }
+
+      nav ul {
+        flex-direction: column;
+      }
+
+      .content {
+        padding: 24px;
+      }
+
+      .field-row {
+        flex-direction: row;
+      }
+    }
+
+    /* ---------- Desktop: results in two columns ---------- */
+    @media (min-width: 1200px) {
+      .results {
+        grid-template-columns: 3fr 2fr;
+        align-items: start;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <div class="brand">scrtncl</div>
+    <ul>
+      <li><a href="network-dashboard.html">Overview</a></li>
+      <li><a href="network-doctor.html" class="current">Network Doctor</a></li>
+      <li><a href="network-map.html">Network Map</a></li>
+      <li><a href="router-center.html">Router Center</a></li>
+      <li><a href="device-manager.html">Device Manager</a></li>
+      <li><a href="ai-technician.html">AI Technician</a></li>
+      <li><a href="settings.html">Settings</a></li>
+    </ul>
+  </nav>
+
+  <div class="content">
+
+    <div class="page-title">
+      <h1>Network Doctor</h1>
+      <p>Check your connection step by step and find the likely cause of a problem.</p>
+    </div>
+
+    <div class="notice" id="notice">
+      Sample data only. To run real tests, start the engine with <span class="ip">python scrtncl_server.py</span> and open this page from <span class="ip">http://localhost:8000</span>.
+    </div>
+
+    <!-- Run a diagnosis -->
+    <section class="panel">
+      <h2>Run a diagnosis</h2>
+      <p class="hint">Tests only read information. They never change your settings.</p>
+      <form action="#" method="post" id="doctor-form">
+        <div class="field-row">
+          <div class="field">
+            <label for="scope">What to check</label>
+            <select id="scope" name="scope">
+              <option value="all">Full check (all stages)</option>
+              <option value="local">Local network only</option>
+              <option value="dns">DNS only</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="target">Test website</label>
+            <select id="target" name="target">
+              <option value="default">Default test sites</option>
+              <option value="custom">Choose a site</option>
+            </select>
+          </div>
+        </div>
+        <label class="check-line" for="router-login">
+          <input type="checkbox" id="router-login" name="router-login">
+          Use my router login for extra WAN and log checks (optional)
+        </label>
+        <div class="button-row">
+          <button type="submit" id="run-button">Diagnose my internet</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Results -->
+    <div class="results">
+
+      <section class="panel">
+        <h2>Test results</h2>
+        <p class="hint" id="results-hint">Sample data: internet connected, but websites won't load</p>
+        <ol class="stages" id="stage-list">
+          <li>
+            <div class="stage-top">
+              <span class="dot up"></span>
+              <span class="stage-name">Physical and link</span>
+              <span class="badge pass">Pass</span>
+            </div>
+            <p class="stage-detail">Wi-Fi connected at 866 Mbps, signal strong.</p>
+          </li>
+          <li>
+            <div class="stage-top">
+              <span class="dot up"></span>
+              <span class="stage-name">IP configuration</span>
+              <span class="badge pass">Pass</span>
+            </div>
+            <p class="stage-detail">Address 192.168.1.34 from DHCP, gateway 192.168.1.1.</p>
+          </li>
+          <li>
+            <div class="stage-top">
+              <span class="dot up"></span>
+              <span class="stage-name">Local gateway</span>
+              <span class="badge pass">Pass</span>
+            </div>
+            <p class="stage-detail">Router replied in 1 ms, 0% packet loss.</p>
+          </li>
+          <li>
+            <div class="stage-top">
+              <span class="dot up"></span>
+              <span class="stage-name">External connectivity</span>
+              <span class="badge pass">Pass</span>
+            </div>
+            <p class="stage-detail">Public IP addresses reachable in 24 ms.</p>
+          </li>
+          <li>
+            <div class="stage-top">
+              <span class="dot down"></span>
+              <span class="stage-name">DNS resolution</span>
+              <span class="badge fail">Fail</span>
+            </div>
+            <p class="stage-detail">Configured resolver timed out on 4 of 4 lookups.</p>
+          </li>
+          <li>
+            <div class="stage-top">
+              <span class="dot warn"></span>
+              <span class="stage-name">Application connectivity</span>
+              <span class="badge">Not tested</span>
+            </div>
+            <p class="stage-detail">Skipped because name lookups failed.</p>
+          </li>
+          <li>
+            <div class="stage-top">
+              <span class="dot"></span>
+              <span class="stage-name">Router and WAN evidence</span>
+              <span class="badge skip">Skipped</span>
+            </div>
+            <p class="stage-detail">No router login provided.</p>
+          </li>
+          <li>
+            <div class="stage-top">
+              <span class="dot"></span>
+              <span class="stage-name">Root cause and verification</span>
+              <span class="badge">Ready</span>
+            </div>
+            <p class="stage-detail">See the diagnosis.</p>
+          </li>
+        </ol>
+      </section>
+
+      <section class="panel diagnosis" id="diagnosis-panel">
+        <h2 id="diag-title">Diagnosis: DNS resolution failure</h2>
+        <p class="hint">A likely cause, not a certain one</p>
+
+        <div class="finding">
+          <h3>What was measured</h3>
+          <ul id="diag-measured">
+            <li>Router and public IP addresses respond normally</li>
+            <li>The configured DNS server did not answer any lookup</li>
+          </ul>
+        </div>
+
+        <div class="finding">
+          <h3>Probable cause</h3>
+          <p id="diag-cause">Your connection works, but the DNS server your device uses is not answering. This points to a resolver or DNS settings problem.</p>
+        </div>
+
+        <div class="finding">
+          <h3>Not verified</h3>
+          <p id="diag-unverified">Whether a VPN or filtering rule is blocking DNS. Router logs were not checked.</p>
+        </div>
+
+        <div class="finding">
+          <h3>Recommended next step</h3>
+          <p id="diag-next">Compare your configured DNS server against a known working one, check VPN and filtering settings, then run the test again.</p>
+        </div>
+
+        <div class="button-row">
+          <button type="button" id="rerun-button">Run again</button>
+          <button type="button" class="secondary">Save report</button>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Decision table -->
+    <section class="panel">
+      <h2>How results are read</h2>
+      <p class="hint">These are likely explanations. A router may block some tests and still pass normal traffic.</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>What the tests show</th>
+              <th>Likely explanation</th>
+              <th>Next action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Adapter disconnected</td>
+              <td>Physical link or Wi-Fi connection failure</td>
+              <td>Inspect adapter and connection</td>
+            </tr>
+            <tr>
+              <td>DHCP failed, no valid IP</td>
+              <td>DHCP or local configuration issue</td>
+              <td>Inspect lease and DHCP server</td>
+            </tr>
+            <tr>
+              <td>Gateway reachable, external IP fails</td>
+              <td>WAN, routing, firewall, or upstream issue</td>
+              <td>Check WAN state and trace the path</td>
+            </tr>
+            <tr>
+              <td>External IP works, DNS fails</td>
+              <td>Resolver or DNS configuration issue</td>
+              <td>Compare DNS servers</td>
+            </tr>
+            <tr>
+              <td>Only one website fails</td>
+              <td>Website, routing, TLS, or application issue</td>
+              <td>Test that domain and protocol</td>
+            </tr>
+            <tr>
+              <td>High local latency</td>
+              <td>Wi-Fi congestion, poor signal, or heavy LAN traffic</td>
+              <td>Compare wired and wireless tests</td>
+            </tr>
+            <tr>
+              <td>Good idle latency, severe latency under load</td>
+              <td>Queueing (bufferbloat)</td>
+              <td>Run loaded-latency tests</td>
+            </tr>
+            <tr>
+              <td>Intermittent packet loss</td>
+              <td>Wireless interference, failing link, or upstream instability</td>
+              <td>Compare results over time</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer>
+      Use this tool only on networks and routers you own or have permission to manage.
+    </footer>
+
+  </div>
+
+  <script>
+    var form = document.getElementById("doctor-form");
+    var runButton = document.getElementById("run-button");
+    var rerunButton = document.getElementById("rerun-button");
+    var notice = document.getElementById("notice");
+    var resultsHint = document.getElementById("results-hint");
+    var stageList = document.getElementById("stage-list");
+    var diagnosisPanel = document.getElementById("diagnosis-panel");
+    var diagTitle = document.getElementById("diag-title");
+    var diagMeasured = document.getElementById("diag-measured");
+    var diagCause = document.getElementById("diag-cause");
+    var diagUnverified = document.getElementById("diag-unverified");
+    var diagNext = document.getElementById("diag-next");
+
+    var STATUS_TEXT = { pass: "Pass", fail: "Fail", warn: "Warning", skip: "Skipped" };
+    var DOT_CLASS = { pass: "up", fail: "down", warn: "warn", skip: "" };
+
+    function makeElement(tag, className, text) {
+      var element = document.createElement(tag);
+      if (className) {
+        element.className = className;
+      }
+      if (text) {
+        element.textContent = text;
+      }
+      return element;
+    }
+
+    function showStages(stages) {
+      stageList.innerHTML = "";
+      var all = stages.concat([{ name: "Root cause and verification", status: "done", detail: "See the diagnosis." }]);
+      for (var i = 0; i < all.length; i++) {
+        var item = all[i];
+        var li = document.createElement("li");
+        var top = makeElement("div", "stage-top");
+        top.appendChild(makeElement("span", ("dot " + (DOT_CLASS[item.status] || "")).trim()));
+        top.appendChild(makeElement("span", "stage-name", item.name));
+        top.appendChild(makeElement("span", "badge " + (item.status === "done" ? "" : item.status), item.status === "done" ? "Done" : STATUS_TEXT[item.status]));
+        li.appendChild(top);
+        li.appendChild(makeElement("p", "stage-detail", item.detail));
+        stageList.appendChild(li);
+      }
+    }
+
+    function showDiagnosis(report) {
+      var stages = report.stages;
+      var anyFail = false;
+      var anyWarn = false;
+      var skipped = [];
+      diagMeasured.innerHTML = "";
+
+      for (var i = 0; i < stages.length; i++) {
+        if (stages[i].status === "fail") { anyFail = true; }
+        if (stages[i].status === "warn") { anyWarn = true; }
+        if (stages[i].status === "skip") {
+          skipped.push(stages[i].name);
+        } else {
+          diagMeasured.appendChild(makeElement("li", "", stages[i].detail));
+        }
+      }
+
+      diagnosisPanel.className = "panel diagnosis" + (anyFail ? "" : anyWarn ? " warn" : " ok");
+      diagTitle.textContent = "Diagnosis: " + report.diagnosis.title;
+      diagCause.textContent = report.diagnosis.likely_cause;
+      diagNext.textContent = report.diagnosis.next_step;
+      diagUnverified.textContent = "Not checked yet: " + skipped.join(", ") + ". VPN and filtering rules were not checked either.";
+    }
+
+    function showReport(report) {
+      showStages(report.stages);
+      showDiagnosis(report);
+      resultsHint.textContent = "Live results from " + report.computer + ", " + new Date(report.time).toLocaleString();
+      notice.textContent = "Live results from your computer. Press Run again to test again.";
+    }
+
+    function showError() {
+      notice.textContent = "Could not reach the scrtncl engine. Start it with python scrtncl_server.py, then open this page from http://localhost:8000/network-doctor.html";
+      resultsHint.textContent = "No live results. The data shown is still the sample.";
+    }
+
+    function setBusy(isBusy) {
+      runButton.disabled = isBusy;
+      rerunButton.disabled = isBusy;
+      runButton.textContent = isBusy ? "Checking..." : "Diagnose my internet";
+      if (isBusy) {
+        resultsHint.textContent = "Running tests. This takes up to about 30 seconds.";
+      }
+    }
+
+    function runDiagnosis() {
+      setBusy(true);
+      fetch("/api/doctor")
+        .then(function (response) {
+          if (!response.ok) {
+            throw new Error("Engine returned an error");
+          }
+          return response.json();
+        })
+        .then(showReport)
+        .catch(showError)
+        .then(function () {
+          setBusy(false);
+        });
+    }
+
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      runDiagnosis();
+    });
+
+    rerunButton.addEventListener("click", runDiagnosis);
+  </script>
+
+</body>
+</html>

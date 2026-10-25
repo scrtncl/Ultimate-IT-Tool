@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Router Center</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+      background-color: #e8edf1;
+      color: #1b2b38;
+      line-height: 1.5;
+      display: grid;
+      grid-template-columns: 1fr;
+    }
+
+    /* ---------- Side navigation ---------- */
+    nav {
+      background-color: #12324a;
+      color: #ffffff;
+      padding: 12px 16px;
+    }
+
+    nav .brand {
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    nav ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    nav a {
+      display: block;
+      padding: 6px 12px;
+      border-radius: 4px;
+      color: #cfdde8;
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
+
+    nav a:hover {
+      background-color: #1d4764;
+    }
+
+    nav a.current {
+      background-color: #ffffff;
+      color: #12324a;
+      font-weight: 600;
+    }
+
+    /* ---------- Page content ---------- */
+    .content {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      min-width: 0;
+    }
+
+    .page-title h1 {
+      margin: 0;
+      font-size: 1.5rem;
+    }
+
+    .page-title p {
+      margin: 4px 0 0 0;
+      color: #5a6e7c;
+    }
+
+    .notice {
+      padding: 10px 16px;
+      background-color: #fff4d6;
+      border: 1px solid #e6cf8a;
+      border-radius: 6px;
+      font-size: 0.85rem;
+    }
+
+    .panel {
+      background-color: #ffffff;
+      border: 1px solid #c3cfd8;
+      border-radius: 6px;
+      padding: 16px;
+      min-width: 0;
+    }
+
+    .panel h2 {
+      margin: 0 0 4px 0;
+      font-size: 1.05rem;
+    }
+
+    .panel .hint {
+      margin: 0 0 12px 0;
+      font-size: 0.85rem;
+      color: #5a6e7c;
+    }
+
+    .ip {
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.9rem;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+
+    /* ---------- Status dots and badges ---------- */
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background-color: #8a9aa6;
+      flex-shrink: 0;
+    }
+
+    .dot.up { background-color: #34b36b; }
+    .dot.warn { background-color: #e0a100; }
+    .dot.down { background-color: #d24545; }
+
+    .badge {
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 2px 10px;
+      border-radius: 12px;
+      background-color: #dde5eb;
+      color: #3b4f5e;
+      white-space: nowrap;
+    }
+
+    .badge.pass { background-color: #d5f0e0; color: #17613a; }
+    .badge.fail { background-color: #f8d9d9; color: #8a2222; }
+    .badge.warn { background-color: #fbecc2; color: #7a5600; }
+
+    /* ---------- Stat lists ---------- */
+    .stat-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .stat-list li {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 0;
+      border-bottom: 1px solid #e3e9ee;
+    }
+
+    .stat-list li:last-child {
+      border-bottom: none;
+    }
+
+    .stat-list span:first-child {
+      color: #5a6e7c;
+    }
+
+    /* ---------- Access levels ---------- */
+    .level {
+      border: 1px solid #c3cfd8;
+      border-radius: 6px;
+      padding: 12px;
+      background-color: #f8fafb;
+    }
+
+    .level.active {
+      border: 2px solid #12324a;
+      background-color: #ffffff;
+    }
+
+    .level h3 {
+      margin: 0 0 4px 0;
+      font-size: 0.95rem;
+    }
+
+    .level p {
+      margin: 0 0 8px 0;
+      font-size: 0.85rem;
+      color: #5a6e7c;
+    }
+
+    .level ul {
+      margin: 0;
+      padding-left: 18px;
+      font-size: 0.85rem;
+    }
+
+    /* ---------- Tables ---------- */
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+      min-width: 520px;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 8px 10px;
+      border-bottom: 1px solid #e3e9ee;
+    }
+
+    th {
+      background-color: #f1f5f8;
+      font-weight: 600;
+    }
+
+    /* ---------- Logs ---------- */
+    .log {
+      margin: 0;
+      padding: 10px;
+      background-color: #f1f5f8;
+      border: 1px solid #c3cfd8;
+      border-radius: 4px;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.8rem;
+      line-height: 1.6;
+      overflow-x: auto;
+      white-space: pre;
+    }
+
+    /* ---------- Forms ---------- */
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      flex: 1;
+    }
+
+    .field-row {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    label {
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    input[type="text"], input[type="password"], select, textarea {
+      font: inherit;
+      padding: 8px 10px;
+      border: 1px solid #9fb0bd;
+      border-radius: 4px;
+      background-color: #ffffff;
+      color: #1b2b38;
+      width: 100%;
+    }
+
+    textarea {
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.9rem;
+      resize: vertical;
+    }
+
+    .check-line {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 400;
+      font-size: 0.9rem;
+    }
+
+    .check-line input {
+      width: 18px;
+      height: 18px;
+    }
+
+    input:focus, select:focus, textarea:focus, button:focus {
+      outline: 3px solid #7db5e0;
+      outline-offset: 1px;
+    }
+
+    button {
+      font: inherit;
+      font-weight: 600;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 4px;
+      background-color: #12324a;
+      color: #ffffff;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #1d4764;
+    }
+
+    button.secondary {
+      background-color: #ffffff;
+      color: #12324a;
+      border: 1px solid #12324a;
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .plan {
+      padding: 10px 12px;
+      background-color: #f1f5f8;
+      border-left: 6px solid #e0a100;
+      border-radius: 4px;
+      font-size: 0.9rem;
+    }
+
+    .plan h3 {
+      margin: 0 0 4px 0;
+      font-size: 0.95rem;
+    }
+
+    .plan ul {
+      margin: 0;
+      padding-left: 20px;
+    }
+
+    footer {
+      padding: 8px 0;
+      text-align: center;
+      font-size: 0.8rem;
+      color: #5a6e7c;
+    }
+
+    /* ---------- Tablet: two columns ---------- */
+    @media (min-width: 700px) {
+      .grid-2 {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .field-row {
+        flex-direction: row;
+      }
+    }
+
+    /* ---------- Wide screens: side menu ---------- */
+    @media (min-width: 900px) {
+      body {
+        grid-template-columns: 220px 1fr;
+        min-height: 100vh;
+      }
+
+      nav {
+        padding: 20px 12px;
+      }
+
+      nav ul {
+        flex-direction: column;
+      }
+
+      .content {
+        padding: 24px;
+      }
+
+      .grid-3 {
+        grid-template-columns: 1fr 1fr 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <div class="brand">scrtncl</div>
+    <ul>
+      <li><a href="network-dashboard.html">Overview</a></li>
+      <li><a href="network-doctor.html">Network Doctor</a></li>
+      <li><a href="network-map.html">Network Map</a></li>
+      <li><a href="router-center.html" class="current">Router Center</a></li>
+      <li><a href="device-manager.html">Device Manager</a></li>
+      <li><a href="ai-technician.html">AI Technician</a></li>
+      <li><a href="settings.html">Settings</a></li>
+    </ul>
+  </nav>
+
+  <div class="content">
+
+    <div class="page-title">
+      <h1>Router Center</h1>
+      <p>See what your router reports, and what scrtncl is allowed to do with it.</p>
+    </div>
+
+    <div class="notice">
+      Sample data only. Nothing here is connected to a real router yet.
+    </div>
+
+    <!-- Access levels -->
+    <section class="panel">
+      <h2>Access level</h2>
+      <p class="hint">scrtncl only does what the current level allows. Higher levels need your router login.</p>
+      <div class="grid-3">
+        <div class="level">
+          <h3>Level 1: No login</h3>
+          <p>Works on almost any router.</p>
+          <ul>
+            <li>Router reachable</li>
+            <li>Speed to the router</li>
+            <li>DNS and internet checks</li>
+          </ul>
+        </div>
+        <div class="level active">
+          <h3>Level 2: Read only <span class="badge pass">Current</span></h3>
+          <p>Reads data after you log in. Changes nothing.</p>
+          <ul>
+            <li>Uptime and WAN status</li>
+            <li>Interface counters</li>
+            <li>Connected clients and logs</li>
+          </ul>
+        </div>
+        <div class="level">
+          <h3>Level 3: Changes</h3>
+          <p>Needs a backup and your approval each time.</p>
+          <ul>
+            <li>Back up the configuration</li>
+            <li>Change supported settings</li>
+            <li>Restart selected services</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <div class="grid-2">
+
+      <!-- Router details -->
+      <section class="panel">
+        <h2>Router</h2>
+        <p class="hint">Found on your network</p>
+        <ul class="stat-list">
+          <li><span>Address</span><span class="ip">192.168.1.1</span></li>
+          <li><span>Model</span><span>Example AX3000</span></li>
+          <li><span>Firmware</span><span>2.4.1</span></li>
+          <li><span>Connected with</span><span>SSH</span></li>
+          <li><span>Uptime</span><span>14 days 6 hours</span></li>
+          <li><span>CPU load</span><span>12%</span></li>
+        </ul>
+      </section>
+
+      <!-- WAN health -->
+      <section class="panel">
+        <h2>Internet connection (WAN)</h2>
+        <p class="hint">What the router sees on its internet side</p>
+        <ul class="stat-list">
+          <li><span>Status</span><span class="badge pass">Connected</span></li>
+          <li><span>Connection type</span><span>DHCP</span></li>
+          <li><span>Public address</span><span class="ip">203.0.113.45</span></li>
+          <li><span>Link speed</span><span>1 Gbps</span></li>
+          <li><span>Last link change</span><span>3 days ago</span></li>
+          <li><span>Packet loss (last hour)</span><span class="badge warn">1.8%</span></li>
+        </ul>
+      </section>
+
+    </div>
+
+    <!-- Interfaces -->
+    <section class="panel">
+      <h2>Interfaces</h2>
+      <p class="hint">Traffic counters since the router last restarted</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Role</th>
+              <th>Status</th>
+              <th>Received</th>
+              <th>Sent</th>
+              <th>Errors</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="ip">wan</td>
+              <td>Internet</td>
+              <td><span class="dot up"></span> Up</td>
+              <td>412 GB</td>
+              <td>61 GB</td>
+              <td>3</td>
+            </tr>
+            <tr>
+              <td class="ip">lan1</td>
+              <td>Wired network</td>
+              <td><span class="dot up"></span> Up</td>
+              <td>58 GB</td>
+              <td>389 GB</td>
+              <td>0</td>
+            </tr>
+            <tr>
+              <td class="ip">wlan0</td>
+              <td>Wi-Fi 5 GHz</td>
+              <td><span class="dot up"></span> Up</td>
+              <td>203 GB</td>
+              <td>1.1 TB</td>
+              <td>41</td>
+            </tr>
+            <tr>
+              <td class="ip">wlan1</td>
+              <td>Wi-Fi 2.4 GHz</td>
+              <td><span class="dot warn"></span> Busy</td>
+              <td>19 GB</td>
+              <td>77 GB</td>
+              <td>212</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <div class="grid-2">
+
+      <!-- Logs -->
+      <section class="panel">
+        <h2>Router logs</h2>
+        <p class="hint">Most recent entries</p>
+<pre class="log">10:42:07  wan      DHCP lease renewed
+10:31:55  wlan1    Client 9C:8E:CD:44:20:B6 left
+10:31:12  wlan1    High retry rate on channel 6
+09:58:40  firewall Blocked 14 inbound attempts
+08:12:03  system   Firmware check passed</pre>
+        <div class="button-row" style="margin-top: 12px;">
+          <button type="button" class="secondary">Refresh logs</button>
+        </div>
+      </section>
+
+      <!-- Capabilities -->
+      <section class="panel">
+        <h2>What this router supports</h2>
+        <p class="hint">If something isn't supported, scrtncl says so instead of guessing.</p>
+        <ul class="stat-list">
+          <li><span>WAN status</span><span class="badge pass">Supported</span></li>
+          <li><span>Interface counters</span><span class="badge pass">Supported</span></li>
+          <li><span>Connected clients</span><span class="badge pass">Supported</span></li>
+          <li><span>Logs</span><span class="badge pass">Supported</span></li>
+          <li><span>Configuration backup</span><span class="badge pass">Supported</span></li>
+          <li><span>Change Wi-Fi settings</span><span class="badge">Not supported</span></li>
+        </ul>
+      </section>
+
+    </div>
+
+    <!-- Router login -->
+    <section class="panel">
+      <h2>Router login</h2>
+      <p class="hint">Needed for Level 2 and Level 3. scrtncl never tries default passwords.</p>
+      <form action="#" method="post">
+        <div class="field-row">
+          <div class="field">
+            <label for="router-ip">Router address</label>
+            <input type="text" id="router-ip" name="router" value="192.168.1.1">
+          </div>
+          <div class="field">
+            <label for="router-method">Connect with</label>
+            <select id="router-method" name="method">
+              <option value="ssh">SSH</option>
+              <option value="snmp">SNMP</option>
+              <option value="api">Router API</option>
+            </select>
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="router-user">Username</label>
+            <input type="text" id="router-user" name="user" autocomplete="username">
+          </div>
+          <div class="field">
+            <label for="router-pass">Password</label>
+            <input type="password" id="router-pass" name="password" autocomplete="current-password">
+          </div>
+        </div>
+        <label class="check-line" for="read-only">
+          <input type="checkbox" id="read-only" name="read-only" checked>
+          Read only: never change anything on this router
+        </label>
+        <div class="button-row">
+          <button type="submit">Connect</button>
+          <button type="reset" class="secondary">Clear</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Change with approval -->
+    <section class="panel">
+      <h2>Make a change</h2>
+      <p class="hint">Level 3 only. You see the plan first, and nothing runs until you approve it.</p>
+      <form action="#" method="post">
+        <div class="field-row">
+          <div class="field">
+            <label for="change-type">What to change</label>
+            <select id="change-type" name="change">
+              <option value="backup">Back up configuration</option>
+              <option value="dns">Change DNS servers</option>
+              <option value="restart-wifi">Restart Wi-Fi</option>
+              <option value="restart-router">Restart router</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="change-note">Reason (saved in the log)</label>
+            <input type="text" id="change-note" name="note" placeholder="Websites won't load">
+          </div>
+        </div>
+        <div class="plan">
+          <h3>Sample plan: Change DNS servers</h3>
+          <ul>
+            <li>Back up the current configuration first</li>
+            <li>Change the DNS servers on the WAN interface</li>
+            <li>Warning: devices may lose internet for about 10 seconds</li>
+            <li>Run the Network Doctor again to check the result</li>
+            <li>Roll back from the backup if the check fails</li>
+          </ul>
+        </div>
+        <label class="check-line" for="approve">
+          <input type="checkbox" id="approve" name="approve">
+          I understand this plan and approve it
+        </label>
+        <div class="button-row">
+          <button type="button" class="secondary">Review plan</button>
+          <button type="submit">Run approved change</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Risk levels -->
+    <section class="panel">
+      <h2>How risky is each change?</h2>
+      <p class="hint">Riskier changes need more approval.</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Risk</th>
+              <th>Example</th>
+              <th>What scrtncl requires</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Read only</td>
+              <td>Ping, view status, read logs</td>
+              <td>Nothing extra</td>
+            </tr>
+            <tr>
+              <td>Low</td>
+              <td>Clear the local DNS cache</td>
+              <td>Your confirmation</td>
+            </tr>
+            <tr>
+              <td>Medium</td>
+              <td>Change DNS, renew a lease, restart an adapter</td>
+              <td>Your approval and a warning about losing connection</td>
+            </tr>
+            <tr>
+              <td>High</td>
+              <td>Change router firewall, WAN, or Wi-Fi settings</td>
+              <td>Admin approval, a backup, and a rollback plan</td>
+            </tr>
+            <tr>
+              <td>Critical</td>
+              <td>Factory reset, firmware flashing</td>
+              <td>A separate manual process. Never automatic.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer>
+      Use this tool only on networks and routers you own or have permission to manage.
+    </footer>
+
+  </div>
+
+</body>
+</html>
