@@ -131,7 +131,11 @@
       font-weight: 600;
     }
 
-    select {
+    .field[hidden] {
+      display: none;
+    }
+
+    select, input[type="text"] {
       font: inherit;
       padding: 8px 10px;
       border: 1px solid #9fb0bd;
@@ -139,6 +143,7 @@
       background-color: #ffffff;
       color: #1b2b38;
       width: 100%;
+      box-sizing: border-box;
     }
 
     .check-line {
@@ -400,9 +405,13 @@
             </select>
           </div>
         </div>
+        <div class="field" id="site-field" hidden>
+          <label for="site">Website to test</label>
+          <input type="text" id="site" name="site" maxlength="253" placeholder="example.com" autocomplete="off">
+        </div>
         <label class="check-line" for="router-login">
-          <input type="checkbox" id="router-login" name="router-login">
-          Use my router login for extra WAN and log checks (optional)
+          <input type="checkbox" id="router-login" name="router-login" disabled>
+          Router login checks are not available yet
         </label>
         <div class="button-row">
           <button type="submit" id="run-button">Diagnose my internet</button>
@@ -513,7 +522,7 @@
 
         <div class="button-row">
           <button type="button" id="rerun-button">Run again</button>
-          <button type="button" class="secondary">Save report</button>
+          <button type="button" class="secondary" id="save-report-button" disabled>Save report</button>
         </div>
       </section>
 
@@ -597,7 +606,14 @@
     var diagCause = document.getElementById("diag-cause");
     var diagUnverified = document.getElementById("diag-unverified");
     var diagNext = document.getElementById("diag-next");
+    var targetSelect = document.getElementById("target");
+    var scopeSelect = document.getElementById("scope");
+    var siteField = document.getElementById("site-field");
+    var siteInput = document.getElementById("site");
+    var saveReportButton = document.getElementById("save-report-button");
+    var lastReport = null;
 
+    var SCOPE_TEXT = { all: "Full check", local: "Local network only", dns: "DNS only" };
     var STATUS_TEXT = { pass: "Pass", fail: "Fail", warn: "Warning", skip: "Skipped" };
     var DOT_CLASS = { pass: "up", fail: "down", warn: "warn", skip: "" };
 
@@ -649,17 +665,67 @@
       diagTitle.textContent = "Diagnosis: " + report.diagnosis.title;
       diagCause.textContent = report.diagnosis.likely_cause;
       diagNext.textContent = report.diagnosis.next_step;
-      diagUnverified.textContent = "Not checked yet: " + skipped.join(", ") + ". VPN and filtering rules were not checked either.";
+      diagUnverified.textContent = (skipped.length ? "Not checked: " + skipped.join(", ") + ". " : "") +
+        "VPN and filtering rules were not checked either.";
     }
 
     function showReport(report) {
       showStages(report.stages);
       showDiagnosis(report);
       resultsHint.textContent = "Live results from " + report.computer + ", " + new Date(report.time).toLocaleString();
-      notice.textContent = "Live results from your computer. Press Run again to test again.";
+      notice.textContent = "Live results from your computer. Press Run again to test again." +
+        (report.saved === false ? " This check was smaller or used your own website, so it was not added to your history or ratings." : "");
+      lastReport = report;
+      saveReportButton.disabled = false;
     }
 
-    function showError() {
+    function reportText(report) {
+      var lines = [];
+      lines.push("scrtncl Network Doctor report");
+      lines.push("Time: " + new Date(report.time).toLocaleString());
+      lines.push("Computer: " + report.computer);
+      lines.push("Check: " + (SCOPE_TEXT[report.scope] || "Full check") + (report.site ? ", website " + report.site : ""));
+      lines.push("");
+      for (var i = 0; i < report.stages.length; i++) {
+        var item = report.stages[i];
+        lines.push((i + 1) + ". [" + STATUS_TEXT[item.status].toUpperCase() + "] " + item.name);
+        lines.push("   " + item.detail);
+      }
+      lines.push("");
+      lines.push("Diagnosis: " + report.diagnosis.title);
+      lines.push("Likely cause: " + report.diagnosis.likely_cause);
+      lines.push("Recommended next step: " + report.diagnosis.next_step);
+      lines.push("");
+      lines.push("This is a likely cause, not a certain one. Router logs, VPN and filtering rules were not checked.");
+      lines.push("This report may include your network addresses and Wi-Fi name. Check it before you share it.");
+      return lines.join("\r\n");
+    }
+
+    function two(number) {
+      return (number < 10 ? "0" : "") + number;
+    }
+
+    function saveReport() {
+      if (!lastReport) { return; }
+      var when = new Date(lastReport.time);
+      var name = "scrtncl-report-" + when.getFullYear() + "-" + two(when.getMonth() + 1) + "-" +
+        two(when.getDate()) + "-" + two(when.getHours()) + two(when.getMinutes()) + ".txt";
+      var blob = new Blob([reportText(lastReport)], { type: "text/plain" });
+      var link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+    }
+
+    function showError(error) {
+      if (error && error.fromEngine) {
+        notice.textContent = error.message;
+        resultsHint.textContent = "Nothing was run.";
+        return;
+      }
       notice.textContent = "Could not reach the scrtncl engine. Start it with python scrtncl_server.py, then open this page from http://localhost:8000/network-doctor.html";
       resultsHint.textContent = "No live results. The data shown is still the sample.";
     }
@@ -674,9 +740,26 @@
     }
 
     function runDiagnosis() {
+      var url = "/api/doctor?scope=" + encodeURIComponent(scopeSelect.value);
+      if (targetSelect.value === "custom" && scopeSelect.value !== "local") {
+        var site = siteInput.value.trim();
+        if (site === "") {
+          notice.textContent = "Type the website you want to test, or choose Default test sites.";
+          siteInput.focus();
+          return;
+        }
+        url += "&site=" + encodeURIComponent(site);
+      }
       setBusy(true);
-      fetch("/api/doctor")
+      fetch(url)
         .then(function (response) {
+          if (response.status === 400) {
+            return response.json().then(function (body) {
+              var problem = new Error(body.error || "The request was not accepted.");
+              problem.fromEngine = true;
+              throw problem;
+            });
+          }
           if (!response.ok) {
             throw new Error("Engine returned an error");
           }
@@ -695,6 +778,15 @@
     });
 
     rerunButton.addEventListener("click", runDiagnosis);
+    saveReportButton.addEventListener("click", saveReport);
+
+    function updateSiteField() {
+      var needsSite = targetSelect.value === "custom" && scopeSelect.value !== "local";
+      siteField.hidden = !needsSite;
+    }
+
+    targetSelect.addEventListener("change", updateSiteField);
+    scopeSelect.addEventListener("change", updateSiteField);
   </script>
 
 </body>

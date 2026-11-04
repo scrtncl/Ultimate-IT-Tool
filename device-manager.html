@@ -358,6 +358,18 @@
       color: #5a6e7c;
     }
 
+    .check-line {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 400;
+    }
+
+    .check-line input {
+      width: 18px;
+      height: 18px;
+    }
+
     footer {
       padding: 8px 0;
       text-align: center;
@@ -463,8 +475,16 @@
           </div>
           <div class="field">
             <label for="group">Group</label>
-            <select id="group" name="group" disabled>
-              <option value="all">Groups come later</option>
+            <select id="group" name="group">
+              <option value="all">Any group</option>
+              <option value="none">No group</option>
+              <option value="Computers">Computers</option>
+              <option value="Phones and tablets">Phones and tablets</option>
+              <option value="Servers and storage">Servers and storage</option>
+              <option value="TVs and media">TVs and media</option>
+              <option value="Smart home (IoT)">Smart home (IoT)</option>
+              <option value="Guests">Guests</option>
+              <option value="Other">Other</option>
             </select>
           </div>
           <div class="field">
@@ -595,6 +615,37 @@
           <li><span>First seen</span><span>6 months ago</span></li>
         </ul>
 
+        <h2 style="margin-top: 16px;">Name and group</h2>
+        <p class="hint" id="edit-hint">Scan your network first. Then you can name a device and group it here.</p>
+        <form action="#" method="post" id="edit-form">
+          <div class="field">
+            <label for="edit-name">Your name for this device</label>
+            <input type="text" id="edit-name" name="edit-name" maxlength="40" placeholder="For example: Living room TV" disabled>
+          </div>
+          <div class="field">
+            <label for="edit-group">Group</label>
+            <select id="edit-group" name="edit-group" disabled>
+              <option value="">No group</option>
+              <option value="Computers">Computers</option>
+              <option value="Phones and tablets">Phones and tablets</option>
+              <option value="Servers and storage">Servers and storage</option>
+              <option value="TVs and media">TVs and media</option>
+              <option value="Smart home (IoT)">Smart home (IoT)</option>
+              <option value="Guests">Guests</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <label class="check-line" for="edit-known">
+            <input type="checkbox" id="edit-known" name="edit-known" disabled>
+            I know this device (stops it showing as new)
+          </label>
+          <div class="button-row">
+            <button type="submit" id="save-button" disabled>Save</button>
+            <button type="button" class="secondary" id="ping-button" disabled>Ping this device</button>
+          </div>
+        </form>
+        <p class="hint" id="edit-message" style="margin-top: 8px;"></p>
+
         <h2 style="margin-top: 16px;">History</h2>
         <p class="hint">What scrtncl has seen of this device</p>
         <ul class="history" id="history-list">
@@ -627,7 +678,7 @@
             </p>
           </div>
         </div>
-        <p class="hint">Naming devices, grouping them, and marking them as known come later.</p>
+        <p class="hint">Select a device in the table, then name it, group it, or mark it as known.</p>
       </section>
 
     </div>
@@ -652,6 +703,15 @@
     var filterForm = document.getElementById("filter-form");
     var searchBox = document.getElementById("search");
     var statusSelect = document.getElementById("status");
+    var groupSelect = document.getElementById("group");
+    var editForm = document.getElementById("edit-form");
+    var editName = document.getElementById("edit-name");
+    var editGroup = document.getElementById("edit-group");
+    var editKnown = document.getElementById("edit-known");
+    var editHint = document.getElementById("edit-hint");
+    var editMessage = document.getElementById("edit-message");
+    var saveButton = document.getElementById("save-button");
+    var pingButton = document.getElementById("ping-button");
 
     var devices = [];
     var selectedId = null;
@@ -669,7 +729,7 @@
     }
 
     function deviceName(device) {
-      return device.hostname || "Unnamed device";
+      return device.custom_name || device.hostname || (device.kind.indexOf("Router") === 0 ? "Router" : "Unnamed device");
     }
 
     function formatTime(iso) {
@@ -684,7 +744,7 @@
       var text = searchBox.value.trim().toLowerCase();
       var status = statusSelect.value;
       if (text) {
-        var haystack = (deviceName(device) + " " + device.ip + " " + (device.mac || "")).toLowerCase();
+        var haystack = (deviceName(device) + " " + (device.hostname || "") + " " + device.ip + " " + (device.mac || "")).toLowerCase();
         if (haystack.indexOf(text) === -1) {
           return false;
         }
@@ -692,6 +752,9 @@
       if (status === "online" && device.status !== "online") { return false; }
       if (status === "offline" && device.status !== "offline") { return false; }
       if (status === "new" && !device.is_new) { return false; }
+      var group = groupSelect.value;
+      if (group === "none" && device.group) { return false; }
+      if (group !== "all" && group !== "none" && device.group !== group) { return false; }
       return true;
     }
 
@@ -731,7 +794,7 @@
         row.appendChild(makeElement("td", "", device.kind));
         row.appendChild(makeElement("td", "ip", device.ip));
         row.appendChild(makeElement("td", "ip", device.mac || "Not shown"));
-        row.appendChild(makeElement("td", "", "Not set"));
+        row.appendChild(makeElement("td", "", device.group || "Not set"));
         row.appendChild(makeElement("td", "", device.status === "online" ? "Now" : formatTime(device.last_seen)));
 
         var statusCell = document.createElement("td");
@@ -777,6 +840,7 @@
 
       detailTitle.textContent = deviceName(device);
       detailHint.textContent = device.kind;
+      fillEditForm(device);
       detailList.innerHTML = "";
       historyList.innerHTML = "";
 
@@ -786,8 +850,10 @@
       addRow(detailList, "Status", status);
       addRow(detailList, "IP address", makeElement("span", "ip", device.ip));
       addRow(detailList, "MAC address", makeElement("span", "ip", device.mac || "Not shown"));
-      addRow(detailList, "Name", makeElement("span", "ip", device.hostname || "Not shared by the device"));
-      addRow(detailList, "Group", makeElement("span", "", "Not set"));
+      addRow(detailList, "Name the device shares", makeElement("span", "ip", device.hostname || "Not shared by the device"));
+      addRow(detailList, "Your name", makeElement("span", "", device.custom_name || "Not set"));
+      addRow(detailList, "Group", makeElement("span", "", device.group || "Not set"));
+      addRow(detailList, "Known", makeElement("span", "", device.known ? "Yes" : "No"));
       addRow(detailList, "Response time", makeElement("span", "",
         device.status !== "online" ? "Offline" : device.ping_ms === null ? "No reply to ping" : device.ping_ms + " ms"));
       if (device.private_mac) {
@@ -811,6 +877,105 @@
       historyList.appendChild(lastSeen);
     }
 
+    function findDevice(id) {
+      for (var i = 0; i < devices.length; i++) {
+        if (devices[i].id === id) { return devices[i]; }
+      }
+      return null;
+    }
+
+    function fillEditForm(device) {
+      editName.value = device.custom_name || "";
+      editGroup.value = device.group || "";
+      editKnown.checked = !!device.known;
+      editName.disabled = false;
+      editGroup.disabled = false;
+      editKnown.disabled = false;
+      saveButton.disabled = false;
+      pingButton.disabled = device.status !== "online";
+      editHint.textContent = "Your choices are saved on this computer only. They never change the device itself.";
+      editMessage.textContent = "";
+    }
+
+    function postJson(url, data) {
+      return fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      }).then(function (response) {
+        return response.json().then(function (body) {
+          if (!response.ok) {
+            throw new Error(body.error || "The engine returned an error.");
+          }
+          return body;
+        });
+      });
+    }
+
+    function saveDevice(id, name, group, known) {
+      return postJson("/api/device", { id: id, name: name, group: group, known: known })
+        .then(function (saved) {
+          var device = findDevice(id);
+          if (device) {
+            device.custom_name = saved.custom_name;
+            device.group = saved.group;
+            device.known = saved.known;
+            device.is_new = saved.is_new;
+          }
+          renderCounts();
+          renderTable();
+          renderDetail();
+          renderNew();
+        });
+    }
+
+    editForm.addEventListener("submit", function (event) {
+      event.preventDefault();
+      if (selectedId === null) { return; }
+      saveButton.disabled = true;
+      saveDevice(selectedId, editName.value, editGroup.value, editKnown.checked)
+        .then(function () {
+          editMessage.textContent = "Saved.";
+        })
+        .catch(function (error) {
+          editMessage.textContent = "Could not save: " + error.message;
+          saveButton.disabled = false;
+        });
+    });
+
+    pingButton.addEventListener("click", function () {
+      if (selectedId === null) { return; }
+      pingButton.disabled = true;
+      pingButton.textContent = "Pinging...";
+      editMessage.textContent = "Sending " + 4 + " pings. This takes a few seconds.";
+      postJson("/api/ping", { id: selectedId })
+        .then(function (r) {
+          if (r.received === 0) {
+            editMessage.textContent = "No reply from " + r.ip + " (4 of 4 pings lost). Some devices ignore pings even when they are on.";
+          } else {
+            editMessage.textContent = r.ip + ": " + r.received + " of " + r.sent + " replies, " +
+              r.loss_percent + "% lost. Time: " + r.min_ms + " ms lowest, " + r.avg_ms + " ms average, " + r.max_ms + " ms highest.";
+          }
+        })
+        .catch(function (error) {
+          editMessage.textContent = "Could not ping: " + error.message;
+        })
+        .then(function () {
+          pingButton.disabled = false;
+          pingButton.textContent = "Ping this device";
+        });
+    });
+
+    function makeKnownHandler(id) {
+      return function () {
+        var device = findDevice(id);
+        if (!device) { return; }
+        saveDevice(id, device.custom_name, device.group, true).catch(function (error) {
+          showMessage("Could not save: " + error.message);
+        });
+      };
+    }
+
     function renderNew() {
       newList.innerHTML = "";
       var count = 0;
@@ -827,6 +992,10 @@
         details.appendChild(document.createElement("br"));
         details.appendChild(document.createTextNode("First seen " + formatTime(device.first_seen)));
         card.appendChild(details);
+        var knownButton = makeElement("button", "small secondary", "Mark as known");
+        knownButton.type = "button";
+        knownButton.addEventListener("click", makeKnownHandler(device.id));
+        card.appendChild(knownButton);
         newList.appendChild(card);
       }
       if (count === 0) {

@@ -151,7 +151,7 @@
       font-weight: 600;
     }
 
-    select, input[type="text"] {
+    select, input[type="text"], input[type="number"] {
       font: inherit;
       padding: 8px 10px;
       border: 1px solid #9fb0bd;
@@ -369,18 +369,18 @@
       <p>Choose how scrtncl looks, what it can do, and what it is allowed to share.</p>
     </div>
 
-    <div class="notice">
-      Sample screen only. Nothing you choose here is saved yet.
+    <div class="notice" id="notice">
+      Sample screen. To save settings, start the engine with <span class="ip">python scrtncl_server.py</span> and open this page from <span class="ip">http://localhost:8000</span>.
     </div>
 
-    <form action="#" method="post">
+    <form action="#" method="post" id="settings-form">
 
       <div class="grid-2">
 
         <!-- Experience -->
         <section class="panel">
           <h2>Experience</h2>
-          <p class="hint">How much detail scrtncl shows</p>
+          <p class="hint">How much detail scrtncl shows. Saved now, used by features that come later.</p>
           <fieldset>
             <legend>Mode</legend>
             <label class="option" for="mode-simple">
@@ -404,7 +404,7 @@
         <!-- Safety -->
         <section class="panel">
           <h2>Safety</h2>
-          <p class="hint">Rules scrtncl follows before it touches anything</p>
+          <p class="hint">Rules scrtncl follows before it touches anything. scrtncl cannot change a router yet, so these are saved for when it can.</p>
           <fieldset>
             <legend>Before any change</legend>
             <label class="option" for="safe-readonly">
@@ -433,7 +433,7 @@
         <!-- Privacy -->
         <section class="panel">
           <h2>Privacy</h2>
-          <p class="hint">What the AI Technician is allowed to see</p>
+          <p class="hint">What the AI Technician is allowed to see. Saved now, used when the real AI Technician is built.</p>
           <fieldset>
             <legend>Shared with the AI</legend>
             <label class="option" for="priv-results">
@@ -465,7 +465,7 @@
         <!-- Alerts -->
         <section class="panel">
           <h2>Alerts</h2>
-          <p class="hint">When scrtncl should tell you something</p>
+          <p class="hint">What gets recorded and shown. These work now.</p>
           <fieldset>
             <legend>Alert me when</legend>
             <label class="option" for="alert-offline">
@@ -480,25 +480,24 @@
               <input type="checkbox" id="alert-wan" name="wan" checked>
               <span>The internet connection drops</span>
             </label>
-            <label class="option" for="alert-firmware">
-              <input type="checkbox" id="alert-firmware" name="firmware">
-              <span>A router firmware update is available</span>
+            <label class="option" for="alert-wifi">
+              <input type="checkbox" id="alert-wifi" name="wifi" checked>
+              <span>Your Wi-Fi disconnects or reconnects</span>
             </label>
           </fieldset>
-          <div class="field" style="margin-top: 14px;">
-            <label for="loss">Packet loss warning level</label>
-            <select id="loss" name="loss">
-              <option value="1">Above 1%</option>
-              <option value="2">Above 2%</option>
-              <option value="5">Above 5%</option>
-            </select>
-          </div>
+          <label class="option" for="monitor-on" style="margin-top: 14px;">
+            <input type="checkbox" id="monitor-on" name="monitor-on" checked>
+            <span>Keep checking in the background<small>While the server window is open. Powers the History panel.</small></span>
+          </label>
           <div class="field" style="margin-top: 10px;">
-            <label for="interval">Check the network every</label>
+            <label for="interval">Background check every</label>
             <select id="interval" name="interval">
               <option value="1">1 minute</option>
+              <option value="2">2 minutes</option>
               <option value="5" selected>5 minutes</option>
+              <option value="10">10 minutes</option>
               <option value="15">15 minutes</option>
+              <option value="30">30 minutes</option>
               <option value="60">1 hour</option>
             </select>
           </div>
@@ -506,8 +505,34 @@
 
       </div>
 
+      <div class="grid-2">
+
+        <!-- Plan -->
+        <section class="panel">
+          <h2>Your internet plan</h2>
+          <p class="hint">Optional. With your plan speed, scrtncl rates your speed against what you pay for, not against fixed numbers.</p>
+          <div class="field">
+            <label for="plan-down">Download speed (Mbps)</label>
+            <input type="number" id="plan-down" name="plan-down" min="1" max="100000" step="any" placeholder="For example 100">
+          </div>
+          <div class="field" style="margin-top: 10px;">
+            <label for="plan-up">Upload speed (Mbps)</label>
+            <input type="number" id="plan-up" name="plan-up" min="1" max="100000" step="any" placeholder="For example 30">
+          </div>
+          <p class="hint" style="margin-top: 10px;">Leave a box empty to use the fixed ratings. Your plan speed is usually on your bill or provider account.</p>
+        </section>
+
+        <!-- Where settings live -->
+        <section class="panel">
+          <h2>Where your settings are kept</h2>
+          <p class="hint">Saved on this computer, in <span class="ip">scrtncl-settings.json</span> next to the server. They are not sent anywhere.</p>
+          <p class="hint">Most changes apply right away, without restarting the server. A new check interval starts on the next cycle.</p>
+        </section>
+
+      </div>
+
       <div class="save-bar">
-        <p>Changes apply after you save.</p>
+        <p id="save-message">Changes apply after you save.</p>
         <div class="button-row">
           <button type="submit">Save settings</button>
           <button type="reset" class="secondary">Reset</button>
@@ -519,24 +544,18 @@
     <!-- Agent -->
     <section class="panel">
       <h2>Agent</h2>
-      <p class="hint">The program on your computer that runs the real tests</p>
-      <ul class="stat-list">
-        <li><span>Status</span><span><span class="dot up"></span> Running</span></li>
-        <li><span>Name</span><span>Home PC</span></li>
-        <li><span>Version</span><span>0.1.0 (sample)</span></li>
-        <li><span>Works without internet</span><span class="badge pass">Yes</span></li>
-        <li><span>Last check-in</span><span>1 minute ago</span></li>
+      <p class="hint" id="agent-hint">The program on your computer that runs the real tests. Sample until the engine is running.</p>
+      <ul class="stat-list" id="agent-list">
+        <li><span>Status</span><span><span class="dot"></span> Not connected</span></li>
+        <li><span>Computer</span><span>Not known yet</span></li>
       </ul>
-      <div class="button-row" style="margin-top: 12px;">
-        <button type="button" class="secondary">Restart agent</button>
-        <button type="button" class="danger">Remove this agent</button>
-      </div>
+      <p class="hint" style="margin-top: 12px;">To stop scrtncl, close the server window or press Ctrl+C in it.</p>
     </section>
 
     <!-- Saved logins -->
     <section class="panel">
       <h2>Saved router logins</h2>
-      <p class="hint">Passwords are never shown here. They would be kept in a secure vault.</p>
+      <p class="hint">Sample list. Router login is not built yet. Passwords would never be shown here.</p>
       <div class="table-wrap">
         <table>
           <thead>
@@ -615,6 +634,160 @@
     </footer>
 
   </div>
+
+  <script>
+    var CHECKBOXES = {
+      "safe-readonly": "safe_readonly",
+      "safe-confirm": "safe_confirm",
+      "safe-backup": "safe_backup",
+      "safe-verify": "safe_verify",
+      "priv-results": "share_results",
+      "priv-logs": "share_logs",
+      "alert-offline": "alert_offline",
+      "alert-new": "alert_new_device",
+      "alert-wan": "alert_connection",
+      "alert-wifi": "alert_wifi",
+      "monitor-on": "monitor_enabled"
+    };
+    var RADIOS = {
+      "mode-simple": ["mode", "simple"],
+      "mode-tech": ["mode", "technician"],
+      "ai-cloud": ["ai_where", "cloud"],
+      "ai-local": ["ai_where", "local"]
+    };
+
+    var form = document.getElementById("settings-form");
+    var notice = document.getElementById("notice");
+    var saveMessage = document.getElementById("save-message");
+    var saved = null;
+
+    function apply(settings) {
+      for (var id in CHECKBOXES) {
+        document.getElementById(id).checked = settings[CHECKBOXES[id]] === true;
+      }
+      for (var radioId in RADIOS) {
+        document.getElementById(radioId).checked = settings[RADIOS[radioId][0]] === RADIOS[radioId][1];
+      }
+      document.getElementById("workspace").value = settings.network_type;
+      document.getElementById("interval").value = String(settings.monitor_minutes);
+      document.getElementById("plan-down").value = settings.plan_download_mbps === null ? "" : settings.plan_download_mbps;
+      document.getElementById("plan-up").value = settings.plan_upload_mbps === null ? "" : settings.plan_upload_mbps;
+    }
+
+    function readNumber(id) {
+      var value = parseFloat(document.getElementById(id).value);
+      return isNaN(value) ? null : value;
+    }
+
+    function collect() {
+      var settings = {};
+      for (var id in CHECKBOXES) {
+        settings[CHECKBOXES[id]] = document.getElementById(id).checked;
+      }
+      for (var radioId in RADIOS) {
+        if (document.getElementById(radioId).checked) {
+          settings[RADIOS[radioId][0]] = RADIOS[radioId][1];
+        }
+      }
+      settings.network_type = document.getElementById("workspace").value;
+      settings.monitor_minutes = parseInt(document.getElementById("interval").value, 10);
+      settings.plan_download_mbps = readNumber("plan-down");
+      settings.plan_upload_mbps = readNumber("plan-up");
+      return settings;
+    }
+
+    function fetchJson(url, options) {
+      return fetch(url, options).then(function (response) {
+        return response.json().then(function (data) {
+          if (!response.ok) {
+            throw new Error(data.error || "Request failed");
+          }
+          return data;
+        });
+      });
+    }
+
+    function loadSettings() {
+      fetchJson("/api/settings")
+        .then(function (settings) {
+          saved = settings;
+          apply(settings);
+          notice.textContent = "Live: your settings are saved on this computer. Change anything, then press Save settings.";
+        })
+        .catch(function () {
+          notice.textContent = "Sample screen. The engine is not running, so nothing can be saved. Start it with python scrtncl_server.py and open this page from http://localhost:8000";
+        });
+    }
+
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      saveMessage.textContent = "Saving...";
+      fetchJson("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(collect())
+      })
+        .then(function (settings) {
+          saved = settings;
+          apply(settings);  // shows what was really saved, in case a value was corrected
+          saveMessage.textContent = "Saved at " + new Date().toLocaleTimeString() + ".";
+          loadAgent();
+        })
+        .catch(function (error) {
+          saveMessage.textContent = "Could not save: " + error.message + " (is the engine running, with this page opened from http://localhost:8000?)";
+        });
+    });
+
+    form.addEventListener("reset", function (event) {
+      event.preventDefault();
+      if (saved) {
+        apply(saved);
+        saveMessage.textContent = "Back to your saved settings.";
+      }
+    });
+
+    function addAgentRow(label, valueNode) {
+      var li = document.createElement("li");
+      var name = document.createElement("span");
+      name.textContent = label;
+      li.appendChild(name);
+      li.appendChild(valueNode);
+      document.getElementById("agent-list").appendChild(li);
+    }
+
+    function textSpan(text) {
+      var span = document.createElement("span");
+      span.textContent = text;
+      return span;
+    }
+
+    function loadAgent() {
+      fetchJson("/api/status")
+        .then(function (status) {
+          var list = document.getElementById("agent-list");
+          list.innerHTML = "";
+          var running = document.createElement("span");
+          var dot = document.createElement("span");
+          dot.className = "dot up";
+          running.appendChild(dot);
+          running.appendChild(document.createTextNode(" Running"));
+          addAgentRow("Status", running);
+          addAgentRow("Computer", textSpan(status.computer));
+          addAgentRow("Version", textSpan(status.version + " (Python " + status.python + ")"));
+          addAgentRow("Started", textSpan(new Date(status.started).toLocaleString()));
+          var monitor = status.monitor;
+          addAgentRow("Background checks", textSpan(!monitor.running ? "Off (server started with --no-monitor)" :
+            monitor.enabled ? "On, every " + monitor.interval_minutes + " min" : "Turned off in Settings"));
+          addAgentRow("Last background check", textSpan(monitor.last_sample ? new Date(monitor.last_sample).toLocaleString() : "None yet"));
+          addAgentRow("Works without internet", textSpan("Yes. The tests run on this computer."));
+          document.getElementById("agent-hint").textContent = "Live: the program on your computer that runs the real tests.";
+        })
+        .catch(function () {});
+    }
+
+    loadSettings();
+    loadAgent();
+  </script>
 
 </body>
 </html>

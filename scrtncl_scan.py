@@ -12,6 +12,9 @@ How it works:
   3. It asks the network for each device's name, when the device shares it.
   4. It remembers devices between scans in scrtncl-devices.json, so it
      can show which ones are offline or new.
+  5. You can give a device your own name, put it in a group, mark it as
+     known, and ping it. These choices are saved in scrtncl-devices.json
+     on this computer and never change the device itself.
 
 Safety:
   - Read-only. Nothing is changed on any device.
@@ -30,6 +33,7 @@ import platform
 import re
 import socket
 import subprocess
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
@@ -41,12 +45,21 @@ DEVICES_FILE = os.path.join(FOLDER, "scrtncl-devices.json")
 
 MAX_HISTORY = 300          # most devices kept in the history file
 NEW_DEVICE_DAYS = 7        # a device counts as new for this many days
+MAX_NAME = 40              # longest custom name
+PING_COUNT = 4             # pings sent by "Ping this device"
+GROUPS = ["Computers", "Phones and tablets", "Servers and storage",
+          "TVs and media", "Smart home (IoT)", "Guests", "Other"]
+history_lock = threading.Lock()   # one change to the saved list at a time
 IP_PATTERN = re.compile(r"(\d{1,3}(?:\.\d{1,3}){3})")
 MAC_PATTERN = re.compile(r"([0-9a-fA-F]{1,2}(?:[:-][0-9a-fA-F]{1,2}){5})")
 
 
 class ScanNotAllowed(Exception):
     """Raised when the network is not one scrtncl is willing to scan."""
+
+
+class DeviceError(Exception):
+    """Raised when a device request is not valid."""
 
 
 # ---------------------------------------------------------------
@@ -178,9 +191,100 @@ def days_since(iso_time, now):
     return (now - datetime.fromisoformat(iso_time)).total_seconds() / 86400
 
 
+def compute_is_new(record, now_time):
+    """New = not in the first scan, seen recently, and not marked as known."""
+    return ((not record.get("baseline")) and (not record.get("known"))
+            and days_since(record["first_seen"], now_time) < NEW_DEVICE_DAYS)
+
+
 # ---------------------------------------------------------------
 # The scan
 # ---------------------------------------------------------------
+
+def record_scan(local_ip, network, gateway, replies, neighbors, addresses, names):
+    """Update the saved device list with this scan and build the report."""
+    with history_lock:
+        history = load_history()
+        first_scan = history["scan_count"] == 0
+        now_time = datetime.now()
+        now = now_time.isoformat(timespec="seconds")
+        network_name = str(network)
+        seen_ids = set()
+
+        for ip in addresses:
+            mac = neighbors.get(ip)
+            if ip == local_ip:
+                device_id = "this-computer"
+            elif mac:
+                device_id = mac
+            else:
+                device_id = "ip-" + ip
+            seen_ids.add(device_id)
+
+            if ip == gateway:
+                kind = "Router (gateway)"
+            elif ip == local_ip:
+                kind = "This computer"
+            else:
+                kind = "Unknown"
+
+            record = history["devices"].get(device_id)
+            if record is None or record.get("network") != network_name:
+                record = {"first_seen": now, "baseline": first_scan}
+            record.update({
+                "network": network_name,
+                "ip": ip,
+                "mac": mac,
+                "hostname": names.get(ip) or record.get("hostname"),
+                "kind": kind,
+                "last_seen": now,
+                "ping_ms": replies.get(ip),
+                "private_mac": is_private_mac(mac) if mac else False,
+            })
+            history["devices"][device_id] = record
+
+        devices = []
+        for device_id, record in history["devices"].items():
+            if record.get("network") != network_name:
+                continue  # remembered from a different network
+            online = device_id in seen_ids
+            is_new = compute_is_new(record, now_time)
+            devices.append({
+                "id": device_id,
+                "hostname": record.get("hostname"),
+                "kind": record["kind"],
+                "ip": record["ip"],
+                "mac": record.get("mac"),
+                "status": "online" if online else "offline",
+                "first_seen": record["first_seen"],
+                "last_seen": record["last_seen"],
+                "ping_ms": record.get("ping_ms") if online else None,
+                "private_mac": record.get("private_mac", False),
+                "is_new": is_new,
+                "custom_name": record.get("custom_name"),
+                "group": record.get("group"),
+                "known": bool(record.get("known")),
+            })
+
+        def sort_key(device):
+            rank = 0 if device["kind"].startswith("Router") else 1 if device["kind"] == "This computer" else 2
+            return (device["status"] == "offline", rank, ipaddress.ip_address(device["ip"]))
+
+        devices.sort(key=sort_key)
+
+        report = {
+            "time": now,
+            "network": network_name,
+            "gateway": gateway,
+            "local_ip": local_ip,
+            "first_scan": first_scan,
+            "devices": devices,
+        }
+        history["scan_count"] += 1
+        history["last_report"] = report
+        save_history(history)
+        return report
+
 
 def scan():
     """Scan the local network and return a report dictionary."""
@@ -197,83 +301,90 @@ def scan():
         names = dict(zip(sorted(addresses), pool.map(lookup_name, sorted(addresses))))
     names[local_ip] = socket.gethostname()
 
-    history = load_history()
-    first_scan = history["scan_count"] == 0
-    now_time = datetime.now()
-    now = now_time.isoformat(timespec="seconds")
-    network_name = str(network)
-    seen_ids = set()
+    return record_scan(local_ip, network, gateway, replies, neighbors, addresses, names)
 
-    for ip in addresses:
-        mac = neighbors.get(ip)
-        if ip == local_ip:
-            device_id = "this-computer"
-        elif mac:
-            device_id = mac
-        else:
-            device_id = "ip-" + ip
-        seen_ids.add(device_id)
 
-        if ip == gateway:
-            kind = "Router (gateway)"
-        elif ip == local_ip:
-            kind = "This computer"
-        else:
-            kind = "Unknown"
+# ---------------------------------------------------------------
+# Naming, grouping, marking as known, and pinging one device
+# ---------------------------------------------------------------
 
+def clean_name(name):
+    """Check a custom name. Returns the cleaned name, or None for 'no name'."""
+    if name is None:
+        return None
+    if not isinstance(name, str):
+        raise DeviceError("The name must be text.")
+    name = "".join(ch for ch in name if ch.isprintable()).strip()
+    if len(name) > MAX_NAME:
+        raise DeviceError("The name can be at most " + str(MAX_NAME) + " characters.")
+    return name or None
+
+
+def update_device(device_id, name, group, known):
+    """Save a custom name, a group, and the known flag for one device."""
+    if not isinstance(device_id, str) or not device_id:
+        raise DeviceError("No device was chosen.")
+    name = clean_name(name)
+    if group in ("", None):
+        group = None
+    elif group not in GROUPS:
+        raise DeviceError("That group is not one of the choices.")
+    if not isinstance(known, bool):
+        raise DeviceError("Known must be true or false.")
+
+    with history_lock:
+        history = load_history()
         record = history["devices"].get(device_id)
-        if record is None or record.get("network") != network_name:
-            record = {"first_seen": now, "baseline": first_scan}
-        record.update({
-            "network": network_name,
-            "ip": ip,
-            "mac": mac,
-            "hostname": names.get(ip) or record.get("hostname"),
-            "kind": kind,
-            "last_seen": now,
-            "ping_ms": replies.get(ip),
-            "private_mac": is_private_mac(mac) if mac else False,
-        })
-        history["devices"][device_id] = record
+        if record is None:
+            raise DeviceError("That device is not in the saved list. Scan the network again.")
+        for key, value in (("custom_name", name), ("group", group)):
+            if value is None:
+                record.pop(key, None)
+            else:
+                record[key] = value
+        record["known"] = known
 
-    devices = []
-    for device_id, record in history["devices"].items():
-        if record.get("network") != network_name:
-            continue  # remembered from a different network
-        online = device_id in seen_ids
-        is_new = (not record.get("baseline")) and days_since(record["first_seen"], now_time) < NEW_DEVICE_DAYS
-        devices.append({
-            "id": device_id,
-            "hostname": record.get("hostname"),
-            "kind": record["kind"],
-            "ip": record["ip"],
-            "mac": record.get("mac"),
-            "status": "online" if online else "offline",
-            "first_seen": record["first_seen"],
-            "last_seen": record["last_seen"],
-            "ping_ms": record.get("ping_ms") if online else None,
-            "private_mac": record.get("private_mac", False),
-            "is_new": is_new,
-        })
+        # Keep the saved report in step, so the page needs no new scan.
+        updated = None
+        report = history.get("last_report")
+        if report:
+            for device in report["devices"]:
+                if device["id"] == device_id:
+                    device["custom_name"] = name
+                    device["group"] = group
+                    device["known"] = known
+                    device["is_new"] = compute_is_new(record, datetime.now())
+                    updated = device
+        save_history(history)
+    return updated or {"id": device_id, "custom_name": name, "group": group, "known": known}
 
-    def sort_key(device):
-        rank = 0 if device["kind"].startswith("Router") else 1 if device["kind"] == "This computer" else 2
-        return (device["status"] == "offline", rank, ipaddress.ip_address(device["ip"]))
 
-    devices.sort(key=sort_key)
+def ping_device(device_id):
+    """Ping one saved device a few times. Read-only."""
+    if not isinstance(device_id, str) or not device_id:
+        raise DeviceError("No device was chosen.")
+    record = load_history()["devices"].get(device_id)
+    if record is None:
+        raise DeviceError("That device is not in the saved list. Scan the network again.")
+    try:
+        address = ipaddress.ip_address(record["ip"])
+    except (KeyError, ValueError):
+        raise DeviceError("That device has no usable address.")
+    _, network = get_network()
+    if not address.is_private or address not in network:
+        raise DeviceError("That address is not on your current network, so it will not be pinged.")
 
-    report = {
-        "time": now,
-        "network": network_name,
-        "gateway": gateway,
-        "local_ip": local_ip,
-        "first_scan": first_scan,
-        "devices": devices,
+    times = [ping_once(record["ip"]) for _ in range(PING_COUNT)]
+    replies = [t for t in times if t is not None]
+    return {
+        "ip": record["ip"],
+        "sent": PING_COUNT,
+        "received": len(replies),
+        "loss_percent": round(100 * (PING_COUNT - len(replies)) / PING_COUNT),
+        "min_ms": min(replies) if replies else None,
+        "avg_ms": round(sum(replies) / len(replies), 1) if replies else None,
+        "max_ms": max(replies) if replies else None,
     }
-    history["scan_count"] += 1
-    history["last_report"] = report
-    save_history(history)
-    return report
 
 
 # ---------------------------------------------------------------

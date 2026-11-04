@@ -408,8 +408,8 @@
       <p>Ask a question about your network. The answer comes from real test results, and shows what is still unknown.</p>
     </div>
 
-    <div class="notice">
-      Sample conversation only. No AI is connected yet, and every result below is made up.
+    <div class="notice" id="notice">
+      Sample conversation. To ask real questions, start the engine with <span class="ip">python scrtncl_server.py</span> and open this page from <span class="ip">http://localhost:8000</span>.
     </div>
 
     <div class="layout">
@@ -417,58 +417,24 @@
       <!-- Chat -->
       <section class="panel">
         <h2>Conversation</h2>
-        <p class="hint">The technician can run read-only tests. It cannot change anything by itself.</p>
+        <p class="hint">Ask in your own words. Answers come from your saved checks, speed test, history, and device scan. This is a set of rules reading your numbers, not an AI model, so it can only be as good as the data.</p>
 
-        <div class="chat">
-
-          <div class="message user">
-            <span class="who">You</span>
-            <div class="bubble">
-              <p>Why does my Wi-Fi disconnect every 10 minutes?</p>
-            </div>
-          </div>
-
+        <div class="chat" id="chat">
           <div class="message assistant">
             <span class="who">Technician</span>
             <div class="bubble">
-              <p class="working">Ran 4 read-only checks: Wi-Fi link, router logs, interface counters, signal strength.</p>
-              <p>Your internet connection looks healthy, so the problem is probably on the Wi-Fi side. Here is what the tests showed:</p>
-              <ul>
-                <li>Your laptop's signal is strong (-48 dBm).</li>
-                <li>The router's 2.4 GHz Wi-Fi shows 212 errors and a high retry rate on channel 6.</li>
-                <li>Your laptop dropped off the Wi-Fi 3 times in the last 30 minutes.</li>
-              </ul>
-              <p>The most likely cause is interference or crowding on channel 6. I can't confirm that yet, because I haven't scanned for nearby networks. The findings panel lists what I'd test next.</p>
+              <p>Hi. Ask me about your connection, for example "why is my internet slow?" or "does my connection drop?". I explain what your own measurements show, how sure I am, and what I can't tell.</p>
             </div>
           </div>
-
-          <div class="message user">
-            <span class="who">You</span>
-            <div class="bubble">
-              <p>Can you just fix it?</p>
-            </div>
-          </div>
-
-          <div class="message assistant">
-            <span class="who">Technician</span>
-            <div class="bubble">
-              <p>I can prepare a plan, but I can't change your router on my own. Changing the Wi-Fi channel is a higher-risk change, so it needs your approval and a backup first. I'd suggest running the channel scan before choosing a channel. Open Router Center to review the plan when you're ready.</p>
-            </div>
-          </div>
-
         </div>
 
-        <div class="quick">
-          <button type="button" class="secondary small">Scan Wi-Fi channels</button>
-          <button type="button" class="secondary small">Compare wired and wireless</button>
-          <button type="button" class="secondary small">Check disconnect times</button>
-        </div>
+        <div class="quick" id="quick"></div>
 
-        <form action="#" method="post">
+        <form action="#" method="post" id="ask-form">
           <label for="question">Ask a question</label>
-          <textarea id="question" name="question" rows="3" placeholder="Why is my internet slow in the evening?"></textarea>
+          <textarea id="question" name="question" rows="3" maxlength="500" placeholder="Why is my internet slow in the evening?"></textarea>
           <div class="button-row">
-            <button type="submit">Send</button>
+            <button type="submit" id="ask-button">Ask</button>
             <button type="reset" class="secondary">Clear</button>
           </div>
         </form>
@@ -479,80 +445,63 @@
 
         <section class="panel">
           <h2>Findings</h2>
-          <p class="hint">Facts, likely causes, and unknowns are kept apart</p>
+          <p class="hint" id="findings-hint">Facts, likely causes, and unknowns are kept apart. Ask a question to fill this in.</p>
 
           <div class="finding">
             <h3>What was measured</h3>
-            <ul>
-              <li>Internet, DNS, and router checks pass</li>
-              <li>2.4 GHz Wi-Fi: 212 errors, high retry rate on channel 6</li>
-              <li>Laptop signal -48 dBm (strong)</li>
-              <li>3 Wi-Fi drops in 30 minutes</li>
-            </ul>
+            <ul id="f-measured"><li>Nothing yet</li></ul>
           </div>
 
           <div class="finding main">
             <h3>Most likely cause</h3>
-            <p>Interference or crowding on 2.4 GHz channel 6.</p>
+            <p id="f-cause">Nothing yet</p>
             <div class="confidence">
-              <span class="badge warn">Medium</span>
-              <div class="bar"><div class="bar-fill" style="width: 55%;"></div></div>
+              <span class="badge" id="f-conf-badge">No answer yet</span>
+              <div class="bar"><div class="bar-fill" id="f-conf-bar" style="width: 0%;"></div></div>
             </div>
-            <p style="margin-top: 6px; color: #5a6e7c;">Based on test results only. It goes up or down as more tests run.</p>
+            <ul id="f-evidence" style="margin-top: 6px;"></ul>
+            <p style="margin-top: 6px; color: #5a6e7c;">Confidence comes from how many measurements support the cause, not from how sure the wording sounds.</p>
           </div>
 
           <div class="finding">
             <h3>Other possibilities</h3>
-            <ul>
-              <li>A power-saving setting on the laptop's Wi-Fi adapter</li>
-              <li>Router restarting the Wi-Fi radio (nothing in the logs shows this)</li>
-            </ul>
+            <ul id="f-others"><li>None yet</li></ul>
           </div>
 
           <div class="finding">
             <h3>Not verified</h3>
-            <p>Nearby networks, the exact time of each drop, and the laptop's adapter settings.</p>
+            <ul id="f-unknown"><li>Nothing yet</li></ul>
           </div>
 
           <div class="finding">
             <h3>Recommended tests</h3>
-            <ol>
-              <li>Scan Wi-Fi channels for crowding</li>
-              <li>Test the same laptop on a wired cable</li>
-              <li>Line up the drop times with the router log</li>
-            </ol>
+            <ol id="f-tests"><li>Ask a question first</li></ol>
           </div>
 
           <div class="finding">
-            <h3>Possible fix (not applied)</h3>
-            <p>Move 2.4 GHz Wi-Fi to a less crowded channel. Medium to high risk: needs a backup, your approval, and a rollback plan.</p>
+            <h3>Possible fixes (not applied)</h3>
+            <ul id="f-fixes"><li>None yet</li></ul>
           </div>
 
-          <div class="button-row">
-            <button type="button">Review plan in Router Center</button>
-            <button type="button" class="secondary">Save report</button>
-          </div>
+          <p class="hint" id="f-safety">The technician explains and suggests. It never changes anything on your network.</p>
         </section>
 
         <section class="panel">
-          <h2>Checks it ran</h2>
-          <p class="hint">Only allowed, read-only checks</p>
-          <ul class="stat-list">
-            <li><span>Wi-Fi link status</span><span class="badge pass">Read only</span></li>
-            <li><span>Router logs</span><span class="badge pass">Read only</span></li>
-            <li><span>Interface counters</span><span class="badge pass">Read only</span></li>
-            <li><span>Signal strength</span><span class="badge pass">Read only</span></li>
-            <li><span>Change router settings</span><span class="badge">Never automatic</span></li>
+          <h2>What the answer is based on</h2>
+          <p class="hint">Saved data only, all read from this computer</p>
+          <ul class="stat-list" id="f-sources">
+            <li><span>Nothing yet</span><span class="badge">Ask a question</span></li>
           </ul>
         </section>
 
         <section class="panel">
           <h2>Privacy</h2>
-          <p class="hint">What the AI is allowed to see</p>
+          <p class="hint">Where your data goes</p>
           <ul class="stat-list">
-            <li><span>Router passwords</span><span class="badge">Never shared</span></li>
-            <li><span>Packet contents</span><span class="badge">Excluded</span></li>
-            <li><span>Test results</span><span class="badge pass">Shared</span></li>
+            <li><span>Router passwords</span><span class="badge">Never stored or shared</span></li>
+            <li><span>Packet contents</span><span class="badge">Never read</span></li>
+            <li><span>Your results and history</span><span class="badge pass">Stay on this computer</span></li>
+            <li><span>Online AI service</span><span class="badge">Not used</span></li>
           </ul>
         </section>
 
@@ -565,6 +514,197 @@
     </footer>
 
   </div>
+
+  <script>
+    var QUICK = [
+      ["Why is it slow?", "Why is my internet slow?"],
+      ["Does it drop?", "Does my connection drop?"],
+      ["How is my Wi-Fi?", "How is my Wi-Fi?"],
+      ["Is DNS a problem?", "Why won't websites load? Is DNS a problem?"],
+      ["Who is on my network?", "Who is on my network?"],
+      ["Is it working now?", "Is my internet working right now?"]
+    ];
+    var CONFIDENCE = {
+      low: { text: "Low confidence", badge: "badge", width: 25 },
+      medium: { text: "Medium confidence", badge: "badge warn", width: 55 },
+      high: { text: "High confidence", badge: "badge pass", width: 85 }
+    };
+
+    var chat = document.getElementById("chat");
+    var quick = document.getElementById("quick");
+    var askForm = document.getElementById("ask-form");
+    var questionBox = document.getElementById("question");
+    var askButton = document.getElementById("ask-button");
+    var notice = document.getElementById("notice");
+
+    function makeElement(tag, className, text) {
+      var element = document.createElement(tag);
+      if (className) {
+        element.className = className;
+      }
+      if (text) {
+        element.textContent = text;
+      }
+      return element;
+    }
+
+    function fillList(list, items, emptyText) {
+      list.innerHTML = "";
+      if (items.length === 0) {
+        list.appendChild(makeElement("li", "", emptyText));
+        return;
+      }
+      for (var i = 0; i < items.length; i++) {
+        list.appendChild(makeElement("li", "", items[i]));
+      }
+    }
+
+    function addMessage(kind, build) {
+      var message = makeElement("div", "message " + kind);
+      message.appendChild(makeElement("span", "who", kind === "user" ? "You" : "Technician"));
+      var bubble = makeElement("div", "bubble");
+      build(bubble);
+      message.appendChild(bubble);
+      chat.appendChild(message);
+      if (message.scrollIntoView) {
+        message.scrollIntoView({ block: "nearest" });
+      }
+    }
+
+    function addUserMessage(text) {
+      addMessage("user", function (bubble) {
+        bubble.appendChild(makeElement("p", "", text));
+      });
+    }
+
+    function addAssistantText(text) {
+      addMessage("assistant", function (bubble) {
+        bubble.appendChild(makeElement("p", "", text));
+      });
+    }
+
+    function showFindings(a) {
+      fillList(document.getElementById("f-measured"), a.measured, "Nothing was measured for this question.");
+      fillList(document.getElementById("f-unknown"), a.unknown, "Nothing in particular.");
+      fillList(document.getElementById("f-tests"), a.tests, "No further tests suggested.");
+      fillList(document.getElementById("f-fixes"), a.fixes, "Nothing to suggest.");
+
+      var causeText = document.getElementById("f-cause");
+      var badge = document.getElementById("f-conf-badge");
+      var bar = document.getElementById("f-conf-bar");
+      var evidence = document.getElementById("f-evidence");
+      var others = [];
+      if (a.causes.length > 0) {
+        var top = a.causes[0];
+        var level = CONFIDENCE[top.confidence];
+        causeText.textContent = top.cause;
+        badge.className = level.badge;
+        badge.textContent = level.text;
+        bar.style.width = level.width + "%";
+        fillList(evidence, top.evidence, "");
+        for (var i = 1; i < a.causes.length; i++) {
+          others.push(a.causes[i].cause + " (" + a.causes[i].confidence + " confidence)");
+        }
+      } else {
+        causeText.textContent = "No clear cause to point at.";
+        badge.className = "badge";
+        badge.textContent = "Nothing to rate";
+        bar.style.width = "0%";
+        evidence.innerHTML = "";
+      }
+      fillList(document.getElementById("f-others"), others, "None.");
+
+      var sources = document.getElementById("f-sources");
+      sources.innerHTML = "";
+      if (a.sources.length === 0) {
+        var none = makeElement("li", "");
+        none.appendChild(makeElement("span", "", "No saved data yet"));
+        none.appendChild(makeElement("span", "badge", "Nothing to read"));
+        sources.appendChild(none);
+      }
+      for (var j = 0; j < a.sources.length; j++) {
+        var li = makeElement("li", "");
+        li.appendChild(makeElement("span", "", a.sources[j]));
+        li.appendChild(makeElement("span", "badge pass", "Read only"));
+        sources.appendChild(li);
+      }
+      document.getElementById("findings-hint").textContent = a.title + ". Facts, likely causes, and unknowns are kept apart.";
+      document.getElementById("f-safety").textContent = a.safety;
+    }
+
+    function showAnswer(a) {
+      addMessage("assistant", function (bubble) {
+        bubble.appendChild(makeElement("p", "working", a.understood_as));
+        for (var i = 0; i < a.paragraphs.length; i++) {
+          bubble.appendChild(makeElement("p", "", a.paragraphs[i]));
+        }
+        if (a.causes.length > 0) {
+          bubble.appendChild(makeElement("p", "", "Most likely: " + a.causes[0].cause + " (" + a.causes[0].confidence + " confidence). The evidence and the other possibilities are in the Findings panel."));
+        }
+        if (a.tests.length > 0) {
+          bubble.appendChild(makeElement("p", "", "Next test: " + a.tests[0]));
+        }
+      });
+      showFindings(a);
+    }
+
+    function ask(text) {
+      text = text.trim();
+      if (!text) { return; }
+      addUserMessage(text);
+      askButton.disabled = true;
+      askButton.textContent = "Thinking...";
+      fetch("/api/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: text })
+      })
+        .then(function (response) {
+          return response.json().then(function (data) {
+            if (!response.ok) {
+              throw new Error(data.error || "Request failed");
+            }
+            return data;
+          });
+        })
+        .then(function (answer) {
+          showAnswer(answer);
+          notice.textContent = "Live: answers come from your saved checks, speed test, history, and device scan.";
+        })
+        .catch(function (error) {
+          addAssistantText("I couldn't answer: " + error.message + " (the engine must be running, with this page opened from http://localhost:8000)");
+        })
+        .then(function () {
+          askButton.disabled = false;
+          askButton.textContent = "Ask";
+        });
+    }
+
+    function makeQuickHandler(text) {
+      return function () { ask(text); };
+    }
+
+    for (var q = 0; q < QUICK.length; q++) {
+      var button = makeElement("button", "secondary small", QUICK[q][0]);
+      button.type = "button";
+      button.addEventListener("click", makeQuickHandler(QUICK[q][1]));
+      quick.appendChild(button);
+    }
+
+    askForm.addEventListener("submit", function (event) {
+      event.preventDefault();
+      var text = questionBox.value;
+      questionBox.value = "";
+      ask(text);
+    });
+
+    questionBox.addEventListener("keydown", function (event) {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        askForm.dispatchEvent ? askForm.dispatchEvent(new Event("submit", { cancelable: true })) : null;
+      }
+    });
+  </script>
 
 </body>
 </html>
