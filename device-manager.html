@@ -715,6 +715,7 @@
 
     var devices = [];
     var selectedId = null;
+    var makerListLoaded = false;
     var scanTime = "";
 
     function makeElement(tag, className, text) {
@@ -732,6 +733,20 @@
       return device.custom_name || device.hostname || (device.kind.indexOf("Router") === 0 ? "Router" : "Unnamed device");
     }
 
+    function deviceType(device) {
+      if (device.kind === "Unknown" && device.guess) {
+        return (device.guess_basis === "name" ? "Likely " : "Made by ") + device.guess;
+      }
+      return device.kind;
+    }
+
+    function makerText(device) {
+      if (device.maker) { return device.maker; }
+      if (device.private_mac) { return "Cannot be read: this device uses a private address"; }
+      if (!makerListLoaded) { return "Not available: the maker list (oui.csv) is not in the folder"; }
+      return "Not found in the maker list";
+    }
+
     function formatTime(iso) {
       return new Date(iso).toLocaleString();
     }
@@ -744,7 +759,7 @@
       var text = searchBox.value.trim().toLowerCase();
       var status = statusSelect.value;
       if (text) {
-        var haystack = (deviceName(device) + " " + (device.hostname || "") + " " + device.ip + " " + (device.mac || "")).toLowerCase();
+        var haystack = (deviceName(device) + " " + (device.hostname || "") + " " + device.ip + " " + (device.mac || "") + " " + (device.guess || "") + " " + (device.maker || "")).toLowerCase();
         if (haystack.indexOf(text) === -1) {
           return false;
         }
@@ -791,7 +806,7 @@
           row.className = "selected";
         }
         row.appendChild(makeElement("td", "", deviceName(device)));
-        row.appendChild(makeElement("td", "", device.kind));
+        row.appendChild(makeElement("td", "", deviceType(device)));
         row.appendChild(makeElement("td", "ip", device.ip));
         row.appendChild(makeElement("td", "ip", device.mac || "Not shown"));
         row.appendChild(makeElement("td", "", device.group || "Not set"));
@@ -851,6 +866,13 @@
       addRow(detailList, "IP address", makeElement("span", "ip", device.ip));
       addRow(detailList, "MAC address", makeElement("span", "ip", device.mac || "Not shown"));
       addRow(detailList, "Name the device shares", makeElement("span", "ip", device.hostname || "Not shared by the device"));
+      if (device.hostname && device.name_source) {
+        addRow(detailList, "How the name was found", makeElement("span", "", device.name_source));
+      }
+      addRow(detailList, "Maker (from MAC address)", makeElement("span", "", makerText(device)));
+      if (device.guess) {
+        addRow(detailList, "Looks like (a guess)", makeElement("span", "", deviceType(device)));
+      }
       addRow(detailList, "Your name", makeElement("span", "", device.custom_name || "Not set"));
       addRow(detailList, "Group", makeElement("span", "", device.group || "Not set"));
       addRow(detailList, "Known", makeElement("span", "", device.known ? "Yes" : "No"));
@@ -1005,6 +1027,7 @@
 
     function showReport(report) {
       devices = report.devices;
+      makerListLoaded = !!report.maker_list_loaded;
       scanTime = formatTime(report.time);
       if (selectedId === null || !devices.some(function (d) { return d.id === selectedId; })) {
         selectedId = devices.length > 0 ? devices[0].id : null;
@@ -1013,7 +1036,8 @@
       renderTable();
       renderDetail();
       renderNew();
-      tableHint.textContent = "Live: " + devices.length + " devices on " + report.network + ", last scanned " + scanTime + ". Select a device to see its details.";
+      tableHint.textContent = "Live: " + devices.length + " devices on " + report.network + ", last scanned " + scanTime + ". Select a device to see its details." +
+        (makerListLoaded ? "" : " Maker names need the free list from the IEEE saved as oui.csv in the scrtncl folder.");
       newHint.textContent = "Devices scrtncl has not seen before, in the last 7 days";
       notice.textContent = "Live: devices from the last scan (" + scanTime + "). Press Scan network to scan again.";
     }

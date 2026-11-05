@@ -12,6 +12,12 @@ How it works:
   3. It asks the network for each device's name, when the device shares it.
   4. It remembers devices between scans in scrtncl-devices.json, so it
      can show which ones are offline or new.
+  4b. For each device that answered, it asks for the device's name in three
+     ways (a normal name lookup, Bonjour/mDNS, and NetBIOS), and looks up
+     who made it from its MAC address. If a name or maker points to a
+     brand or kind of device, it is shown as a guess, never as a fact.
+     The maker list is a file you download once (see load_oui below) and
+     is read on this computer. No address is sent over the internet.
   5. You can give a device your own name, put it in a group, mark it as
      known, and ping it. These choices are saved in scrtncl-devices.json
      on this computer and never change the device itself.
@@ -26,14 +32,17 @@ Safety:
 Run it on its own with:   python scrtncl_scan.py      (or: py scrtncl_scan.py)
 """
 
+import csv
 import ipaddress
 import json
 import os
 import platform
 import re
 import socket
+import struct
 import subprocess
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
@@ -159,6 +168,253 @@ def is_private_mac(mac):
 
 
 # ---------------------------------------------------------------
+# Names, makers, and a best guess
+# ---------------------------------------------------------------
+
+MDNS_PORT = 5353
+NETBIOS_PORT = 137
+NAME_TIMEOUT = 1.0
+# Free list from the IEEE, saved in this folder: https://standards-oui.ieee.org/oui/oui.csv
+OUI_FILES = ["oui.csv", "oui28.csv", "oui36.csv"]
+_oui_table = None
+
+
+def read_dns_name(data, offset):
+    """Read a name from a DNS-style packet. Returns (name, offset after it)."""
+    labels = []
+    end = None
+    jumps = 0
+    while True:
+        if offset >= len(data):
+            raise ValueError("packet too short")
+        length = data[offset]
+        if length == 0:
+            offset += 1
+            break
+        if length & 0xC0 == 0xC0:
+            if offset + 1 >= len(data):
+                raise ValueError("packet too short")
+            if end is None:
+                end = offset + 2
+            offset = ((length & 0x3F) << 8) | data[offset + 1]
+            jumps += 1
+            if jumps > 10:
+                raise ValueError("too many jumps")
+            continue
+        offset += 1
+        labels.append(data[offset:offset + length].decode("utf-8", "replace"))
+        offset += length
+    return ".".join(labels), (end if end is not None else offset)
+
+
+def udp_ask(ip, port, packet, timeout=NAME_TIMEOUT):
+    """Send one small UDP question to one device and return its answer, or None."""
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        sock.sendto(packet, (ip, port))
+        deadline = time.time() + timeout
+        while True:
+            remaining = deadline - time.time()
+            if remaining <= 0:
+                return None
+            sock.settimeout(remaining)
+            data, source = sock.recvfrom(2048)
+            if source[0] == ip:
+                return data
+    except OSError:
+        return None
+    finally:
+        sock.close()
+
+
+def build_mdns_query(ip):
+    """A Bonjour question: what is the name for this address?"""
+    reverse = ".".join(reversed(ip.split("."))) + ".in-addr.arpa"
+    question = b"".join(bytes([len(label)]) + label.encode("ascii") for label in reverse.split("."))
+    return struct.pack(">HHHHHH", 0x5C01, 0, 1, 0, 0, 0) + question + b"\x00" + struct.pack(">HH", 12, 1)
+
+
+def parse_mdns_reply(data):
+    """Pull the first name out of a Bonjour answer, or None."""
+    try:
+        question_count, answer_count = struct.unpack(">HH", data[4:8])
+        offset = 12
+        for _ in range(question_count):
+            _, offset = read_dns_name(data, offset)
+            offset += 4
+        for _ in range(answer_count):
+            _, offset = read_dns_name(data, offset)
+            record_type, _, _, length = struct.unpack(">HHIH", data[offset:offset + 10])
+            offset += 10
+            if record_type == 12:
+                name, _ = read_dns_name(data, offset)
+                return name
+            offset += length
+    except (ValueError, struct.error):
+        pass
+    return None
+
+
+def mdns_name(ip, port=MDNS_PORT, timeout=NAME_TIMEOUT):
+    data = udp_ask(ip, port, build_mdns_query(ip), timeout)
+    return parse_mdns_reply(data) if data else None
+
+
+def build_netbios_query():
+    """A NetBIOS question: what names do you have? (Windows computers answer this.)"""
+    return (struct.pack(">HHHHHH", 0x5C02, 0, 1, 0, 0, 0) + b"\x20" + b"CK" + b"A" * 30 + b"\x00" +
+            struct.pack(">HH", 0x0021, 0x0001))
+
+
+def parse_netbios_reply(data):
+    """Pull the computer name out of a NetBIOS answer, or None."""
+    try:
+        answer_count = struct.unpack(">H", data[6:8])[0]
+        if answer_count < 1:
+            return None
+        _, offset = read_dns_name(data, 12)
+        offset += 10  # type, class, time to live, data length
+        count = data[offset]
+        offset += 1
+        for _ in range(count):
+            entry = data[offset:offset + 18]
+            offset += 18
+            if len(entry) < 18:
+                break
+            name = entry[:15].decode("ascii", "replace").strip()
+            flags = int.from_bytes(entry[16:18], "big")
+            if entry[15] == 0 and not flags & 0x8000 and name:
+                return name
+    except (ValueError, IndexError, struct.error):
+        pass
+    return None
+
+
+def netbios_name(ip, port=NETBIOS_PORT, timeout=NAME_TIMEOUT):
+    data = udp_ask(ip, port, build_netbios_query(), timeout)
+    return parse_netbios_reply(data) if data else None
+
+
+def clean_device_name(name):
+    """Tidy a name a device shared. Returns None if there is nothing useful."""
+    if not name:
+        return None
+    name = "".join(ch for ch in name if ch.isprintable()).strip().rstrip(".")
+    for ending in (".local", ".lan", ".home", ".localdomain"):
+        if name.lower().endswith(ending):
+            name = name[:-len(ending)]
+    name = name[:63]
+    if not name or re.fullmatch(r"[0-9.\-]+", name):
+        return None  # empty, or only the address written out
+    return name
+
+
+def find_name(ip):
+    """Ask a device for its name. Returns (name, how) or (None, None)."""
+    finished, value = doctor.run_with_timeout(lambda: socket.gethostbyaddr(ip)[0], 2)
+    name = clean_device_name(value) if finished else None
+    if name:
+        return name, "a normal name lookup"
+    name = clean_device_name(mdns_name(ip))
+    if name:
+        return name, "Bonjour (mDNS)"
+    name = clean_device_name(netbios_name(ip))
+    if name:
+        return name, "NetBIOS"
+    return None, None
+
+
+def load_oui():
+    """Read the maker list from this folder, if it was downloaded. Returns a dictionary."""
+    global _oui_table
+    if _oui_table is not None:
+        return _oui_table
+    table = {}
+    for filename in OUI_FILES:
+        try:
+            with open(os.path.join(FOLDER, filename), encoding="utf-8-sig", newline="") as file:
+                for row in csv.reader(file):
+                    if len(row) >= 3 and re.fullmatch(r"[0-9A-Fa-f]{6,9}", row[1].strip()):
+                        table[row[1].strip().upper()] = row[2].strip()
+        except (OSError, UnicodeDecodeError, csv.Error):
+            continue
+    if table:
+        _oui_table = table
+    return table
+
+
+def maker_of(mac):
+    """Who made the network hardware. Not possible for private (made-up) addresses."""
+    if not mac or is_private_mac(mac):
+        return None
+    table = load_oui()
+    digits = mac.replace(":", "").upper()
+    for length in (9, 7, 6):
+        if digits[:length] in table:
+            return table[digits[:length]]
+    return None
+
+
+def word(pattern):
+    return re.compile(r"(?<![a-z0-9])(?:" + pattern + r")(?![a-z])", re.IGNORECASE)
+
+
+# (pattern, brand, model). A model written as None is taken from the name itself.
+GUESS_RULES = [
+    (word(r"iphone"), "Apple", "iPhone"),
+    (word(r"ipad"), "Apple", "iPad"),
+    (word(r"macbook|imac|mac-?mini|mac-?studio"), "Apple", "Mac"),
+    (word(r"apple-?watch"), "Apple", "Watch"),
+    (word(r"apple-?tv"), "Apple", "Apple TV"),
+    (word(r"galaxy[-_ ]?(?:s\d+\w*|a\d+\w*|z[-_ ]?(?:flip|fold)\d*|note\d+\w*)"), "Samsung", None),
+    (word(r"galaxy|samsung"), "Samsung", "device"),
+    (word(r"pixel[-_ ]?\d+\w*"), "Google", "Pixel"),
+    (word(r"redmi|xiaomi|poco"), "Xiaomi", "phone"),
+    (word(r"oppo"), "Oppo", "phone"),
+    (word(r"vivo"), "vivo", "phone"),
+    (word(r"realme"), "realme", "phone"),
+    (word(r"huawei|honor"), "Huawei/Honor", "phone"),
+    (word(r"oneplus"), "OnePlus", "phone"),
+    (word(r"android"), None, "Android device"),
+    (word(r"desktop-\w+|laptop-\w+"), None, "Windows PC"),
+    (word(r"xbox"), "Microsoft", "Xbox"),
+    (word(r"playstation|ps[45]"), "Sony", "PlayStation"),
+    (word(r"chromecast"), "Google", "Chromecast"),
+    (word(r"roku"), "Roku", "device"),
+    (word(r"fire-?tv|kindle|echo-?\w*|alexa"), "Amazon", "device"),
+    (word(r"printer|laserjet|officejet|deskjet"), None, "Printer"),
+]
+
+
+def short_maker(maker):
+    """Trim 'Inc.', 'Co., Ltd.' and similar from a maker name."""
+    for _ in range(3):
+        maker = re.sub(r",?\s*(inc\.?|co\.?,?\s*ltd\.?|ltd\.?|corporation|corp\.?|llc|gmbh)\s*$", "", maker,
+                       flags=re.IGNORECASE).strip()
+    return maker
+
+
+def guess_device(hostname, maker):
+    """A best guess at the kind of device. Returns (label, basis) or (None, None).
+
+    basis is "name" when the device's own name points to it, or "maker" when only
+    the maker is known. This is a guess: names can be changed, and a maker only
+    says who built the network hardware.
+    """
+    if hostname:
+        for pattern, brand, model in GUESS_RULES:
+            found = pattern.search(hostname)
+            if found:
+                if model is None:
+                    model = re.sub(r"[-_ ]+", " ", found.group(0)).title()
+                label = " ".join(part for part in (brand, model) if part)
+                return label, "name"
+    if maker:
+        return short_maker(maker), "maker"
+    return None, None
+
+
+# ---------------------------------------------------------------
 # History
 # ---------------------------------------------------------------
 
@@ -201,7 +457,7 @@ def compute_is_new(record, now_time):
 # The scan
 # ---------------------------------------------------------------
 
-def record_scan(local_ip, network, gateway, replies, neighbors, addresses, names):
+def record_scan(local_ip, network, gateway, replies, neighbors, addresses, names, sources=None):
     """Update the saved device list with this scan and build the report."""
     with history_lock:
         history = load_history()
@@ -231,11 +487,18 @@ def record_scan(local_ip, network, gateway, replies, neighbors, addresses, names
             record = history["devices"].get(device_id)
             if record is None or record.get("network") != network_name:
                 record = {"first_seen": now, "baseline": first_scan}
+            hostname = names.get(ip) or record.get("hostname")
+            maker = maker_of(mac)
+            guess, guess_basis = guess_device(hostname, maker)
             record.update({
                 "network": network_name,
                 "ip": ip,
                 "mac": mac,
-                "hostname": names.get(ip) or record.get("hostname"),
+                "hostname": hostname,
+                "name_source": ((sources or {}).get(ip) if names.get(ip) else record.get("name_source")),
+                "maker": maker,
+                "guess": guess,
+                "guess_basis": guess_basis,
                 "kind": kind,
                 "last_seen": now,
                 "ping_ms": replies.get(ip),
@@ -264,6 +527,10 @@ def record_scan(local_ip, network, gateway, replies, neighbors, addresses, names
                 "custom_name": record.get("custom_name"),
                 "group": record.get("group"),
                 "known": bool(record.get("known")),
+                "name_source": record.get("name_source"),
+                "maker": record.get("maker"),
+                "guess": record.get("guess"),
+                "guess_basis": record.get("guess_basis"),
             })
 
         def sort_key(device):
@@ -278,6 +545,7 @@ def record_scan(local_ip, network, gateway, replies, neighbors, addresses, names
             "gateway": gateway,
             "local_ip": local_ip,
             "first_scan": first_scan,
+            "maker_list_loaded": bool(load_oui()),
             "devices": devices,
         }
         history["scan_count"] += 1
@@ -297,11 +565,15 @@ def scan():
                  and ipaddress.ip_address(ip) != network.broadcast_address}
 
     addresses = set(replies) | set(neighbors) | {local_ip}
+    ordered = sorted(addresses)
     with ThreadPoolExecutor(max_workers=16) as pool:
-        names = dict(zip(sorted(addresses), pool.map(lookup_name, sorted(addresses))))
+        found = list(pool.map(find_name, ordered))
+    names = {ip: pair[0] for ip, pair in zip(ordered, found)}
+    sources = {ip: pair[1] for ip, pair in zip(ordered, found)}
     names[local_ip] = socket.gethostname()
+    sources[local_ip] = "this computer"
 
-    return record_scan(local_ip, network, gateway, replies, neighbors, addresses, names)
+    return record_scan(local_ip, network, gateway, replies, neighbors, addresses, names, sources)
 
 
 # ---------------------------------------------------------------
@@ -407,6 +679,8 @@ def main():
             flags.append("NEW")
         if device["private_mac"]:
             flags.append("private MAC")
+        if device.get("guess"):
+            flags.append(("likely " if device["guess_basis"] == "name" else "made by ") + device["guess"])
         print(device["ip"].ljust(16) + (device["mac"] or "-").ljust(19) +
               device["status"].ljust(9) + (device["hostname"] or "(no name shared)") +
               ("  [" + ", ".join(flags) + "]" if flags else ""))

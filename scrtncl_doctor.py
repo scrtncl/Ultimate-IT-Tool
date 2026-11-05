@@ -23,6 +23,7 @@ import platform
 import random
 import re
 import socket
+import ssl
 import struct
 import subprocess
 import threading
@@ -173,13 +174,50 @@ def direct_dns_query(server, name, timeout=2):
     return reply_id == query_id and (flags & 0xF) == 0 and answers > 0
 
 
+def certifi_context():
+    """A second list of trusted certificates, if the free 'certifi' package is installed."""
+    try:
+        import certifi
+        return ssl.create_default_context(cafile=certifi.where())
+    except Exception:
+        return None
+
+
+def fetch_ok(url, timeout, context=None):
+    with urllib.request.urlopen(url, timeout=timeout, context=context) as response:
+        return 200 <= response.status < 400
+
+
+def https_probe(url, timeout=5):
+    """Fetch a web page over HTTPS.
+
+    Returns:
+      "ok"          it loaded
+      "ok_certifi"  it loaded, but only after checking the certificate against the
+                    certifi list, because this computer's own list did not recognise it
+      "certificate" a secure connection was made but the certificate could not be verified
+                    by either list (certificate checking is never turned off)
+      "failed"      anything else
+    """
+    try:
+        return "ok" if fetch_ok(url, timeout) else "failed"
+    except Exception as error:
+        reason = getattr(error, "reason", error)
+        if not isinstance(reason, ssl.SSLCertVerificationError):
+            return "failed"
+    context = certifi_context()
+    if context is not None:
+        try:
+            if fetch_ok(url, timeout, context):
+                return "ok_certifi"
+        except Exception:
+            pass
+    return "certificate"
+
+
 def https_check(url, timeout=5):
     """Fetch a web page over HTTPS. Returns True if it loaded."""
-    try:
-        with urllib.request.urlopen(url, timeout=timeout) as response:
-            return 200 <= response.status < 400
-    except Exception:
-        return False
+    return https_probe(url, timeout) in ("ok", "ok_certifi")
 
 
 SCOPES = ("all", "local", "dns")
@@ -363,19 +401,30 @@ def run_checks(scope="all", site=None):
         url = "https://" + site if site else HTTPS_TEST_URL
         if facts["system_dns_ok"] and (not site or facts.get("site_dns_ok")):
             started = time.time()
-            web_ok = https_check(url)
+            outcome = https_probe(url)
+            web_ok = outcome in ("ok", "ok_certifi")
+            facts["web_status"] = outcome
             facts["web_ms"] = round((time.time() - started) * 1000) if web_ok else None
             facts["https_ok"] = web_ok
-            if site and not web_ok:
+            if outcome == "certificate":
+                facts["cert_problem"] = True
+            if site and outcome == "failed":
                 # Does an ordinary website load? This tells "one site fails" from "none load".
                 facts["baseline_https_ok"] = https_check(HTTPS_TEST_URL)
+            note = (" This computer's own list of trusted certificates did not recognise the site, so the "
+                    "certifi list was used instead. The computer's list may be out of date."
+                    if outcome == "ok_certifi" else "")
             if web_ok and facts["web_ms"] > POOR_WEB_MS():
                 stages.append(stage("Application connectivity", "warn",
                                     "Loaded " + url + " over HTTPS, but slowly (" +
-                                    str(facts["web_ms"]) + " ms)."))
+                                    str(facts["web_ms"]) + " ms)." + note))
             elif web_ok:
                 stages.append(stage("Application connectivity", "pass",
-                                    "Loaded " + url + " over HTTPS."))
+                                    "Loaded " + url + " over HTTPS." + note))
+            elif outcome == "certificate":
+                stages.append(stage("Application connectivity", "warn",
+                                    "Reached " + url + " securely, but this computer could not verify its "
+                                    "security certificate, so the page was not loaded."))
             else:
                 stages.append(stage("Application connectivity", "fail",
                                     "Could not load " + url + " over HTTPS."))
@@ -427,6 +476,16 @@ def diagnose(facts):
                 "The internet works, but neither your DNS server nor the test DNS server answered. "
                 "Something may be blocking DNS traffic.",
                 "Check firewall, VPN, and router filtering settings, then run again.")
+
+    if facts.get("cert_problem"):
+        return ("Certificate could not be verified",
+                "Your connection, router, and DNS work, and a secure connection was made, but this computer "
+                "(the Python that runs scrtncl) could not verify the website's security certificate. "
+                "If the same site opens in your browser, this is usually a certificate store problem on this "
+                "computer, or a network (such as a hotspot or workplace) that inserts its own certificate. "
+                "It is not a missing connection.",
+                "Open the same site in a browser. Then run this check again on a different network to see "
+                "whether the problem follows this computer or this network.")
 
     site = facts.get("site")
     if site and facts.get("site_dns_ok") is False:
@@ -592,6 +651,7 @@ def build_report(scope="all", site=None):
             "internet_ms": facts.get("internet_ms"),
             "dns_ms": facts.get("dns_ms"),
             "web_ms": facts.get("web_ms"),
+            "web_status": facts.get("web_status"),
             "wifi": facts.get("wifi"),
         },
     }

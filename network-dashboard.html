@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Network Dashboard</title>
   <style>
+    fieldset {
+      border: 0;
+      margin: 0;
+      padding: 0;
+      min-width: 0;
+    }
+
     * {
       box-sizing: border-box;
     }
@@ -672,14 +679,14 @@
     <!-- Router status -->
     <section class="panel">
       <h2>Router</h2>
-      <p class="hint" id="router-hint">Main gateway (sample)</p>
+      <p class="hint" id="router-hint">Main gateway (not checked yet)</p>
       <ul class="stat-list">
         <li><span>Address</span><span class="ip" id="router-address">192.168.1.1</span></li>
-        <li><span>Model</span><span>Example AX3000</span></li>
-        <li><span>Firmware</span><span>2.4.1</span></li>
-        <li><span>Uptime</span><span>14 days 6 hours</span></li>
-        <li><span>CPU load</span><span>12%</span></li>
-        <li><span>Connected devices</span><span id="connected-count">9</span></li>
+        <li><span>Model</span><span>Needs router login</span></li>
+        <li><span>Firmware</span><span>Needs router login</span></li>
+        <li><span>Uptime</span><span>Needs router login</span></li>
+        <li><span>CPU load</span><span>Needs router login</span></li>
+        <li><span>Connected devices</span><span id="connected-count">Run a scan</span></li>
       </ul>
     </section>
 
@@ -844,8 +851,8 @@
     <!-- Ping / traceroute -->
     <section class="panel">
       <h2>Ping and traceroute</h2>
-      <p class="hint">Check if a host is reachable</p>
-      <form action="#" method="post">
+      <p class="hint">Not connected yet. This is a preview of a later feature.</p>
+      <form action="#" method="post"><fieldset disabled>
         <div class="field">
           <label for="ping-host">Host or IP address</label>
           <input type="text" id="ping-host" name="host" placeholder="192.168.1.20 or example.com" required>
@@ -867,15 +874,15 @@
           <button type="submit">Run test</button>
           <button type="reset" class="secondary">Clear</button>
         </div>
-      </form>
-      <div class="output">Results will appear here.</div>
+      </fieldset></form>
+      <div class="output">Not connected yet.</div>
     </section>
 
     <!-- Port scan -->
     <section class="panel">
       <h2>Port scan</h2>
-      <p class="hint">Only scan devices you own or manage</p>
-      <form action="#" method="post">
+      <p class="hint">Not connected yet. When it is built, only scan devices you own or manage.</p>
+      <form action="#" method="post"><fieldset disabled>
         <div class="field">
           <label for="scan-host">Host or IP address</label>
           <input type="text" id="scan-host" name="host" placeholder="192.168.1.21" required>
@@ -901,49 +908,15 @@
           <button type="submit">Start scan</button>
           <button type="reset" class="secondary">Clear</button>
         </div>
-      </form>
-      <div class="output">Open ports will appear here.</div>
+      </fieldset></form>
+      <div class="output">Not connected yet.</div>
     </section>
 
     <!-- Router login and commands -->
     <section class="panel wide span-2">
       <h2>Router access</h2>
-      <p class="hint">Log in to your router, then send it a command</p>
-      <form action="#" method="post">
-        <div class="field-row">
-          <div class="field">
-            <label for="router-ip">Router address</label>
-            <input type="text" id="router-ip" name="router" value="192.168.1.1">
-          </div>
-          <div class="field">
-            <label for="router-method">Connect with</label>
-            <select id="router-method" name="method">
-              <option value="ssh">SSH</option>
-              <option value="snmp">SNMP</option>
-              <option value="api">Router API</option>
-            </select>
-          </div>
-        </div>
-        <div class="field-row">
-          <div class="field">
-            <label for="router-user">Username</label>
-            <input type="text" id="router-user" name="user" autocomplete="username">
-          </div>
-          <div class="field">
-            <label for="router-pass">Password</label>
-            <input type="password" id="router-pass" name="password" autocomplete="current-password">
-          </div>
-        </div>
-        <div class="field">
-          <label for="router-command">Command</label>
-          <textarea id="router-command" name="command" rows="3" placeholder="show interfaces"></textarea>
-        </div>
-        <div class="button-row">
-          <button type="submit">Send command</button>
-          <button type="reset" class="secondary">Clear</button>
-        </div>
-      </form>
-      <div class="output">Router replies will appear here.</div>
+      <p class="hint">Not built yet</p>
+      <p>Logging in to a router is a later feature. When it is built, it will be read-only: scrtncl will look at your router but not change it, and your router password will stay on this computer. Until then, there is nothing to type here.</p>
     </section>
 
   </main>
@@ -1175,6 +1148,15 @@
       return td;
     }
 
+    // Your own name first, then the name the device shares, then a guess from its name or maker.
+    function deviceLabel(device) {
+      if (device.custom_name) { return device.custom_name; }
+      if (device.hostname) { return device.hostname; }
+      if (device.kind.indexOf("Router") === 0) { return "Router"; }
+      if (device.guess) { return (device.guess_basis === "name" ? "Likely " : "Made by ") + device.guess; }
+      return "Unnamed device";
+    }
+
     function showDevices(data) {
       devicesData = data;
       var devices = data.devices;
@@ -1187,10 +1169,10 @@
         if (i >= MAX_TABLE_ROWS) { continue; }
 
         var row = document.createElement("tr");
-        row.appendChild(cell(device.hostname || (device.kind.indexOf("Router") === 0 ? "Router" : "Unnamed device")));
+        row.appendChild(cell(deviceLabel(device)));
         row.appendChild(cell(device.ip, "ip"));
         row.appendChild(cell(device.mac || "Not shown", "ip"));
-        row.appendChild(cell("Not set"));
+        row.appendChild(cell(device.group || "Not set"));
         var status = document.createElement("td");
         status.appendChild(makeSpan("", "dot " + (device.status === "online" ? "up" : "down")));
         status.appendChild(document.createTextNode(device.status === "online" ? " Online" : " Offline"));
@@ -1242,15 +1224,21 @@
         }
       }
       if (devicesData) {
+        // A phone or hotspot can change its address, which leaves an old offline entry
+        // with the same IP as a device that is online now. Those are not real outages.
+        var onlineIps = {};
+        for (var k = 0; k < devicesData.devices.length; k++) {
+          if (devicesData.devices[k].status === "online") { onlineIps[devicesData.devices[k].ip] = true; }
+        }
         for (var j = 0; j < devicesData.devices.length; j++) {
           var device = devicesData.devices[j];
-          var name = device.hostname || device.ip;
+          var name = device.custom_name || device.hostname || device.ip;
           var wantNew = !appSettings || appSettings.alert_new_device !== false;
           var wantOffline = !appSettings || appSettings.alert_offline !== false;
           if (device.is_new && wantNew && count < 8) {
             addAlert("warn", "New device on your network: " + name, device.ip + " first seen " + new Date(device.first_seen).toLocaleString());
             count++;
-          } else if (device.status === "offline" && wantOffline && count < 8) {
+          } else if (device.status === "offline" && wantOffline && !onlineIps[device.ip] && count < 8) {
             addAlert("warn", name + " is not responding", device.ip + " last seen " + new Date(device.last_seen).toLocaleString());
             count++;
           }
@@ -1507,16 +1495,19 @@
       }
 
       routerAddress.textContent = m.gateway || "Not found";
-      routerHint.textContent = "Main gateway (address is live; model, firmware, uptime, and CPU are sample)";
+      routerHint.textContent = "Main gateway. The address is live. Connected devices counts online devices from the last scan, not the router. Model, firmware, uptime, and CPU need a router login.";
 
       setMeter("router", m.router_ms, 50, 20);
       setMeter("dns", m.dns_ms, 200, 100);
       setMeter("web", m.web_ms, 1000, 500);
+      if (m.web_status === "certificate") {
+        document.getElementById("lat-web").textContent = "Certificate not verified";
+      }
       renderWifi(m.wifi);
 
       var when = new Date(report.time).toLocaleString();
       latencyHint.textContent = "Live: last checked " + when;
-      notice.textContent = "Live: status, router address, latency, and Wi-Fi link (last checked " + when + "). Router model, firmware, uptime, and CPU are still sample data, because they need a router login.";
+      notice.textContent = "Live: status, router address, latency, and Wi-Fi link (last checked " + when + "). Router model, firmware, uptime, and CPU need a router login, which is not built yet.";
       renderAlerts();
       loadQuality();
     }
