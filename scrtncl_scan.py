@@ -440,7 +440,12 @@ def save_history(history):
 
 
 def load_last_report():
-    return load_history().get("last_report")
+    report = load_history().get("last_report")
+    if report and isinstance(report.get("devices"), list):
+        now_time = datetime.now()
+        report["devices"] = [d for d in report["devices"]
+                             if not (d.get("status") == "offline" and is_stale_private(d, now_time))]
+    return report
 
 
 def days_since(iso_time, now):
@@ -451,6 +456,19 @@ def compute_is_new(record, now_time):
     """New = not in the first scan, seen recently, and not marked as known."""
     return ((not record.get("baseline")) and (not record.get("known"))
             and days_since(record["first_seen"], now_time) < NEW_DEVICE_DAYS)
+
+
+def is_stale_private(record, now_time):
+    """A device is an abandoned ghost if it used a randomized private MAC, has no
+    custom name, is not marked as known, and was last seen more than 24 hours ago."""
+    if not record.get("private_mac"):
+        return False
+    if record.get("custom_name") or record.get("known"):
+        return False
+    try:
+        return days_since(record.get("last_seen", ""), now_time) >= 1.0
+    except (ValueError, TypeError):
+        return False
 
 
 # ---------------------------------------------------------------
@@ -505,6 +523,12 @@ def record_scan(local_ip, network, gateway, replies, neighbors, addresses, names
                 "private_mac": is_private_mac(mac) if mac else False,
             })
             history["devices"][device_id] = record
+
+        # Prune abandoned ghost devices that used randomized private MACs (>24h stale)
+        stale_ids = [dev_id for dev_id, rec in history["devices"].items()
+                     if dev_id not in seen_ids and is_stale_private(rec, now_time)]
+        for dev_id in stale_ids:
+            del history["devices"][dev_id]
 
         devices = []
         for device_id, record in history["devices"].items():
@@ -656,6 +680,153 @@ def ping_device(device_id):
         "min_ms": min(replies) if replies else None,
         "avg_ms": round(sum(replies) / len(replies), 1) if replies else None,
         "max_ms": max(replies) if replies else None,
+    }
+
+
+# ---------------------------------------------------------------
+# Free-form ping and traceroute (from the dashboard tool form)
+# ---------------------------------------------------------------
+
+HOST_MAX = 253          # longest host or IP string accepted
+PING_MAX_COUNT = 20     # upper bound on packets the user may request
+
+
+def _resolve_host(host):
+    """Return the string to pass to system tools after basic validation.
+    Accepts a bare IPv4/IPv6 address or a hostname (letters, digits, hyphens,
+    dots).  Raises DeviceError for anything else."""
+    host = host.strip()
+    if not host or len(host) > HOST_MAX:
+        raise DeviceError("Please type a host name or IP address.")
+    # Try as a bare IP first
+    try:
+        ipaddress.ip_address(host)
+        return host
+    except ValueError:
+        pass
+    # Hostname: allow letters, digits, hyphens, dots only
+    if not re.match(r"^[A-Za-z0-9.\-]+$", host):
+        raise DeviceError("The host name contains characters that are not allowed.")
+    return host
+
+
+def ping_host(host, count=4):
+    """Ping a freely typed host or IP address. Returns a summary dict."""
+    target = _resolve_host(host)
+    count = max(1, min(int(count), PING_MAX_COUNT))
+    if OS == "Windows":
+        command = ["ping", "-n", str(count), "-w", "2000", target]
+    elif OS == "Darwin":
+        command = ["ping", "-c", str(count), "-W", "2000", target]
+    else:
+        command = ["ping", "-c", str(count), "-W", "2", target]
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, timeout=count * 4 + 5)
+    except (OSError, subprocess.SubprocessError) as error:
+        raise DeviceError("ping could not run: " + str(error))
+    output = result.stdout
+    times = [float(m) for m in re.findall(r"time[=<]\s*([\d.]+)", output, re.IGNORECASE)]
+    received = len(times)
+    return {
+        "tool": "ping",
+        "host": target,
+        "sent": count,
+        "received": received,
+        "loss_percent": round(100 * (count - received) / count),
+        "min_ms": round(min(times), 1) if times else None,
+        "avg_ms": round(sum(times) / len(times), 1) if times else None,
+        "max_ms": round(max(times), 1) if times else None,
+        "raw": output.strip(),
+    }
+
+
+def traceroute_host(host):
+    """Run a traceroute to a freely typed host or IP. Returns raw output."""
+    target = _resolve_host(host)
+    if OS == "Windows":
+        command = ["tracert", "-d", "-h", "20", "-w", "1000", target]
+    elif OS == "Darwin":
+        command = ["traceroute", "-n", "-m", "20", "-w", "2", target]
+    else:
+        command = ["traceroute", "-n", "-m", "20", "-w", "2", target]
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, timeout=90)
+    except (OSError, subprocess.SubprocessError) as error:
+        raise DeviceError("traceroute could not run: " + str(error))
+    return {
+        "tool": "traceroute",
+        "host": target,
+        "raw": result.stdout.strip() or result.stderr.strip(),
+    }
+
+
+PORT_SCAN_MAX = 1000        # largest range allowed in one scan
+PORT_SCAN_WORKERS = 100     # concurrent connection attempts
+PORT_SCAN_TIMEOUT = 0.5     # seconds per port
+
+
+def _resolve_private_ip(host):
+    """Resolve host to an IP and confirm it is in a private range.
+    Raises DeviceError if the address is public or cannot be resolved."""
+    target = _resolve_host(host)
+    try:
+        ip_str = socket.gethostbyname(target)
+        address = ipaddress.ip_address(ip_str)
+    except (OSError, ValueError) as error:
+        raise DeviceError("Could not resolve \"" + target + "\": " + str(error))
+    if not address.is_private:
+        raise DeviceError(
+            "Port scanning is only allowed on private (local) addresses. "
+            "\"" + ip_str + "\" is a public address.")
+    return ip_str
+
+
+def _probe_tcp_port(args):
+    """Try a TCP connection to (ip, port). Returns port if open, else None."""
+    ip, port = args
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.settimeout(PORT_SCAN_TIMEOUT)
+            if sock.connect_ex((ip, port)) == 0:
+                return port
+    except OSError:
+        pass
+    return None
+
+
+WELL_KNOWN_PORTS = {
+    21: "FTP", 22: "SSH", 23: "Telnet", 25: "SMTP", 53: "DNS",
+    80: "HTTP", 110: "POP3", 143: "IMAP", 443: "HTTPS", 445: "SMB",
+    3389: "RDP", 8080: "HTTP-alt", 8443: "HTTPS-alt",
+}
+
+
+def port_scan_host(host, start, end):
+    """TCP-connect scan a private host across a port range.
+    Returns a list of open ports with well-known service labels."""
+    start = max(1, min(int(start), 65535))
+    end   = max(1, min(int(end),   65535))
+    if start > end:
+        start, end = end, start
+    count = end - start + 1
+    if count > PORT_SCAN_MAX:
+        raise DeviceError(
+            "That range covers " + str(count) + " ports. "
+            "Please scan at most " + str(PORT_SCAN_MAX) + " ports at a time.")
+    ip = _resolve_private_ip(host)
+    pairs = [(ip, port) for port in range(start, end + 1)]
+    with ThreadPoolExecutor(max_workers=PORT_SCAN_WORKERS) as pool:
+        results = list(pool.map(_probe_tcp_port, pairs))
+    open_ports = [
+        {"port": p, "service": WELL_KNOWN_PORTS.get(p, "")}
+        for p in results if p is not None
+    ]
+    return {
+        "host": ip,
+        "start": start,
+        "end": end,
+        "scanned": count,
+        "open": open_ports,
     }
 
 

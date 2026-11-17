@@ -201,7 +201,7 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_error(403, "Not allowed")
             return
         post_path = self.path.split("?")[0]
-        if post_path not in ("/api/settings", "/api/ask", "/api/device", "/api/ping"):
+        if post_path not in ("/api/settings", "/api/ask", "/api/device", "/api/ping", "/api/ping-tool", "/api/port-scan"):
             self.send_error(404, "Not found")
             return
         if "application/json" not in self.headers.get("Content-Type", ""):
@@ -219,7 +219,7 @@ class Handler(SimpleHTTPRequestHandler):
         except (ValueError, UnicodeDecodeError):
             self.send_json(400, {"error": "The request was not valid JSON."})
             return
-        if post_path in ("/api/device", "/api/ping"):
+        if post_path in ("/api/device", "/api/ping", "/api/ping-tool", "/api/port-scan"):
             if not isinstance(values, dict):
                 self.send_json(400, {"error": "The request was not valid."})
                 return
@@ -227,8 +227,26 @@ class Handler(SimpleHTTPRequestHandler):
                 if post_path == "/api/device":
                     result = scrtncl_scan.update_device(values.get("id"), values.get("name"),
                                                         values.get("group"), values.get("known"))
-                else:
+                elif post_path == "/api/ping":
                     result = scrtncl_scan.ping_device(values.get("id"))
+                elif post_path == "/api/ping-tool":
+                    tool = values.get("tool", "ping")
+                    host = values.get("host", "")
+                    count = values.get("count", 4)
+                    if tool == "traceroute":
+                        result = scrtncl_scan.traceroute_host(host)
+                    else:
+                        result = scrtncl_scan.ping_host(host, count)
+                else:
+                    scan_type = values.get("type", "tcp")
+                    if scan_type != "tcp":
+                        self.send_json(400, {"error": "UDP scanning is not supported. Select TCP."})
+                        return
+                    result = scrtncl_scan.port_scan_host(
+                        values.get("host", ""),
+                        values.get("start", 1),
+                        values.get("end", 1024),
+                    )
                 self.send_json(200, result)
             except (scrtncl_scan.DeviceError, scrtncl_scan.ScanNotAllowed) as error:
                 self.send_json(400, {"error": str(error)})

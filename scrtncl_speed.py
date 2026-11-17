@@ -17,6 +17,7 @@ Run it on its own with:   python scrtncl_speed.py      (or: py scrtncl_speed.py)
 import http.client
 import json
 import os
+import ssl
 import statistics
 import threading
 import time
@@ -40,11 +41,36 @@ CHUNK = 65536
 BUFFERBLOAT_MS = 100          # extra delay under load that is worth mentioning
 
 
+# None means "use this computer's own list of trusted certificates".
+# If that list does not recognise the speed test server, it is switched to the
+# certifi list (see use_certifi_list). Certificate checking is never turned off.
+_context = None
+
+
+def certifi_context():
+    """A second list of trusted certificates, if the free 'certifi' package is installed."""
+    try:
+        import certifi
+        return ssl.create_default_context(cafile=certifi.where())
+    except Exception:
+        return None
+
+
+def use_certifi_list():
+    """Switch to the certifi list. Returns True if it is available."""
+    global _context
+    context = certifi_context()
+    if context is None:
+        return False
+    _context = context
+    return True
+
+
 def connect():
     """Open a connection to the speed test server."""
     parts = urlparse(BASE_URL)
     if parts.scheme == "https":
-        return http.client.HTTPSConnection(parts.hostname, parts.port, timeout=15)
+        return http.client.HTTPSConnection(parts.hostname, parts.port, timeout=15, context=_context)
     return http.client.HTTPConnection(parts.hostname, parts.port, timeout=15)
 
 
@@ -183,7 +209,21 @@ def run_speed_test():
     }
 
     try:
-        result["idle_delay_ms"] = round(measure_idle_delay())
+        try:
+            result["idle_delay_ms"] = round(measure_idle_delay())
+        except ssl.SSLCertVerificationError:
+            # This computer's own list did not recognise the server. Try the certifi list.
+            if not use_certifi_list():
+                raise
+            result["idle_delay_ms"] = round(measure_idle_delay())
+            result["notes"].append(
+                "This computer's own list of trusted certificates did not recognise the speed test "
+                "server, so the certifi list was used instead. The computer's list may be out of date.")
+    except ssl.SSLCertVerificationError:
+        result["error"] = ("Connected to the speed test server (" + result["server"] + "), but its "
+                           "certificate could not be verified. This is a certificate problem, not an "
+                           "internet problem. Run: python -m pip install certifi")
+        return result
     except Exception:
         result["error"] = ("Could not reach the speed test server (" + result["server"] +
                            "). Check your internet connection.")

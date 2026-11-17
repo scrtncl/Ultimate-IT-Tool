@@ -400,6 +400,7 @@
       <li><a href="device-manager.html">Device Manager</a></li>
       <li><a href="ai-technician.html">AI Technician</a></li>
       <li><a href="settings.html">Settings</a></li>
+      <li><a href="help.html">Help</a></li>
     </ul>
   </nav>
 
@@ -408,6 +409,13 @@
     <div class="page-title">
       <h1>Router Center</h1>
       <p>See what your router reports, and what scrtncl is allowed to do with it.</p>
+    </div>
+
+    <div class="notice" id="hotspot-notice" hidden>
+      <strong>Phone hotspot detected.</strong>
+      The last Network Doctor check shows a gateway of <span id="hotspot-gateway"></span>, which is
+      typical of a phone hotspot. A phone does not have router admin pages, so Router Center stays
+      inactive until this computer is connected to a home or office router. Everything below is sample data.
     </div>
 
     <div class="notice">
@@ -698,5 +706,23 @@
 
   </div>
 
+  <script>
+    // Shows the hotspot notice when the last saved Network Doctor check used a typical
+    // phone-hotspot gateway. It only reads saved results. Nothing is run or changed.
+    var HOTSPOT_PREFIXES = ["10.141.", "10.42.", "172.20.10.", "192.168.43."];
+
+    fetch("/api/results")
+      .then(function (response) { return response.ok ? response.json() : null; })
+      .then(function (report) {
+        if (!report || !report.metrics || !report.metrics.gateway) { return; }
+        var gateway = String(report.metrics.gateway);
+        var isHotspot = HOTSPOT_PREFIXES.some(function (prefix) { return gateway.indexOf(prefix) === 0; });
+        if (isHotspot) {
+          document.getElementById("hotspot-gateway").textContent = gateway;
+          document.getElementById("hotspot-notice").hidden = false;
+        }
+      })
+      .catch(function () { /* no saved results yet: show nothing */ });
+  </script>
 </body>
 </html>

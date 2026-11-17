@@ -44,6 +44,7 @@ POOR_INTERNET_DELAY_MS = lambda: scrtncl_quality.THRESHOLDS["internet_delay"][2]
 POOR_DNS_MS = lambda: scrtncl_quality.THRESHOLDS["dns"][2]
 POOR_WEB_MS = lambda: scrtncl_quality.THRESHOLDS["web"][2]
 SLOW_ROUTER_MS = 20  # a router on your own network should answer faster than this
+GATEWAY_PINGS = 10   # enough pings to show packet loss as a percentage
 
 
 # ---------------------------------------------------------------
@@ -113,11 +114,19 @@ def get_gateway():
     return None
 
 
-def ping(host, count=3):
-    """Ping a host. Returns (packets_received, count, average_ms or None)."""
+def ping(host, count=3, stop_if_silent=None):
+    """Ping a host. Returns (packets_received, packets_sent, average_ms or None).
+
+    If stop_if_silent is a number, the pinging stops early when that many pings in a row
+    get no reply at the very start, so a router that blocks pings does not make the
+    check wait for every ping to time out."""
     received = 0
+    sent = 0
     times = []
     for _ in range(count):
+        if stop_if_silent and received == 0 and sent >= stop_if_silent:
+            break
+        sent += 1
         if OS == "Windows":
             command = ["ping", "-n", "1", "-w", "1000", host]
         else:
@@ -132,7 +141,14 @@ def ping(host, count=3):
             if match:
                 times.append(float(match.group(1)))
     average = round(sum(times) / len(times), 1) if times else None
-    return received, count, average
+    return received, sent, average
+
+
+def loss_percent(received, sent):
+    """Share of pings that got no reply, as a whole percentage. None if nothing was sent."""
+    if not sent:
+        return None
+    return round((sent - received) * 100 / sent)
 
 
 def tcp_connect(host, port, timeout=2):
@@ -302,10 +318,11 @@ def run_checks(scope="all", site=None):
     if do_local:
         gateway = facts["gateway"]
         if gateway:
-            received, sent, average = ping(gateway)
+            received, sent, average = ping(gateway, GATEWAY_PINGS, stop_if_silent=3)
             facts["gateway_received"] = received
             facts["gateway_sent"] = sent
             facts["gateway_avg"] = average
+            facts["gateway_loss_percent"] = loss_percent(received, sent)
             if received == sent and average is not None and average > SLOW_ROUTER_MS:
                 stages.append(stage("Local gateway", "warn",
                                     "Router replied to all " + str(sent) + " pings, but slowly: average " +
@@ -314,11 +331,12 @@ def run_checks(scope="all", site=None):
                 timing = ", average " + str(average) + " ms" if average is not None else ""
                 stages.append(stage("Local gateway", "pass",
                                     "Router replied to " + str(received) + " of " + str(sent) +
-                                    " pings" + timing + "."))
+                                    " pings" + timing + ". Packet loss: 0%."))
             elif received > 0:
                 stages.append(stage("Local gateway", "warn",
                                     "Router replied to only " + str(received) + " of " + str(sent) +
-                                    " pings. Some packets are being lost."))
+                                    " pings. Packet loss: " + str(facts["gateway_loss_percent"]) +
+                                    "%. Some packets are being lost."))
             else:
                 stages.append(stage("Local gateway", "warn",
                                     "Router did not answer pings. Some routers block pings on purpose."))
@@ -508,7 +526,8 @@ def diagnose(facts):
 
     if facts["gateway_sent"] and 0 < facts["gateway_received"] < facts["gateway_sent"]:
         return ("Some packet loss to the router",
-                "Everything works, but some pings to the router were lost. "
+                "Everything works, but " + str(facts.get("gateway_loss_percent")) +
+                "% of the pings to the router were lost. "
                 "This often means Wi-Fi interference or a weak signal.",
                 "Compare a wired connection with Wi-Fi and run the test again.")
 
@@ -570,7 +589,8 @@ def diagnose_local(facts):
                 "Run the full check to see whether the internet still works.")
     if sent and received < sent:
         return ("Some packet loss to the router",
-                "Some pings to the router were lost. This often means Wi-Fi interference or a weak signal.",
+                str(facts.get("gateway_loss_percent")) + "% of the pings to the router were lost. "
+                "This often means Wi-Fi interference or a weak signal.",
                 "Compare a wired connection with Wi-Fi and run the check again.")
     wifi = facts.get("wifi") or {}
     if wifi.get("connected") and wifi.get("quality") == "weak":
@@ -648,6 +668,7 @@ def build_report(scope="all", site=None):
             "router_online": facts.get("gateway_received", 0) > 0,
             "internet_ok": facts.get("external_ok"),
             "router_ms": facts.get("gateway_avg"),
+            "router_loss_percent": facts.get("gateway_loss_percent"),
             "internet_ms": facts.get("internet_ms"),
             "dns_ms": facts.get("dns_ms"),
             "web_ms": facts.get("web_ms"),

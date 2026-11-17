@@ -355,7 +355,7 @@
 
     /* ---------- Live map ---------- */
     .groups.live {
-      display: block;
+      display: grid;
     }
 
     .device-list.columns {
@@ -428,10 +428,10 @@
       }
     }
 
-    /* ---------- Desktop: all groups in one row ---------- */
+    /* ---------- Desktop: auto-fit group grid ---------- */
     @media (min-width: 1300px) {
       .groups {
-        grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
       }
     }
   </style>
@@ -448,6 +448,7 @@
       <li><a href="device-manager.html">Device Manager</a></li>
       <li><a href="ai-technician.html">AI Technician</a></li>
       <li><a href="settings.html">Settings</a></li>
+      <li><a href="help.html">Help</a></li>
     </ul>
   </nav>
 
@@ -470,8 +471,16 @@
         <div class="field-row">
           <div class="field">
             <label for="show-group">Group</label>
-            <select id="show-group" name="group" disabled>
-              <option value="all">Groups come later</option>
+            <select id="show-group" name="group">
+              <option value="all">All groups</option>
+              <option value="Computers">Computers</option>
+              <option value="Phones and tablets">Phones and tablets</option>
+              <option value="Servers and storage">Servers and storage</option>
+              <option value="TVs and media">TVs and media</option>
+              <option value="Smart home (IoT)">Smart home (IoT)</option>
+              <option value="Guests">Guests</option>
+              <option value="Other">Other</option>
+              <option value="Ungrouped">Ungrouped</option>
             </select>
           </div>
           <div class="field">
@@ -625,7 +634,13 @@
     var groupsBox = document.getElementById("groups");
     var scanButton = document.getElementById("scan-button");
     var viewForm = document.getElementById("view-form");
+    var groupFilter = document.getElementById("show-group");
     var deviceFilter = document.getElementById("show-status");
+
+    var GROUP_ORDER = [
+      "Computers", "Phones and tablets", "Servers and storage",
+      "TVs and media", "Smart home (IoT)", "Guests", "Other", "Ungrouped"
+    ];
 
     var report = null;
 
@@ -641,7 +656,7 @@
     }
 
     function deviceName(device) {
-      return device.hostname || "Unnamed device";
+      return device.custom_name || device.hostname || (device.kind === "This computer" ? "This computer" : "Unnamed device");
     }
 
     function formatTime(iso) {
@@ -657,74 +672,113 @@
 
     function drawMap() {
       if (!report) { return; }
+      var selectedGroup = groupFilter ? groupFilter.value : "all";
       var onlyProblems = deviceFilter.value === "problems";
-      var online = 0;
-      var offline = 0;
 
-      groupsBox.className = "groups live";
-      groupsBox.innerHTML = "";
-
-      var box = makeElement("div", "group");
-      box.appendChild(makeElement("h3", "", "Devices on this network"));
-      box.appendChild(makeElement("span", "subnet ip", report.network));
-      var list = makeElement("ul", "device-list columns");
-
+      var totalOnline = 0;
+      var totalOffline = 0;
+      var attentionCount = 0;
       var attention = document.getElementById("attention-list");
       attention.innerHTML = "";
-      var attentionCount = 0;
 
-      for (var i = 0; i < report.devices.length; i++) {
-        var device = report.devices[i];
-        if (device.kind.indexOf("Router") === 0) { continue; }  // the router has its own box above
+      // Buckets for each group
+      var buckets = {};
+      for (var i = 0; i < GROUP_ORDER.length; i++) {
+        buckets[GROUP_ORDER[i]] = [];
+      }
 
-        if (device.status === "online") { online++; } else { offline++; }
+      for (var j = 0; j < report.devices.length; j++) {
+        var device = report.devices[j];
+        if (device.kind && device.kind.indexOf("Router") === 0) { continue; }  // router has its own node
 
-        var hasProblem = device.status === "offline" || device.is_new;
+        var isOnline = device.status === "online";
+        if (isOnline) { totalOnline++; } else { totalOffline++; }
+
+        var hasProblem = !isOnline || device.is_new;
         if (hasProblem) {
           attentionCount++;
           var item = document.createElement("li");
           item.appendChild(makeElement("span", "", deviceName(device)));
           var state = document.createElement("span");
-          state.appendChild(makeElement("span", "dot " + (device.status === "offline" ? "down" : "warn")));
-          state.appendChild(document.createTextNode(device.status === "offline" ? " Offline" : " New, not reviewed"));
+          state.appendChild(makeElement("span", "dot " + (!isOnline ? "down" : "warn")));
+          state.appendChild(document.createTextNode(!isOnline ? " Offline" : " New, not reviewed"));
           item.appendChild(state);
           attention.appendChild(item);
         }
 
+        // Apply filters
+        var grp = device.group || "Ungrouped";
+        if (selectedGroup !== "all" && grp !== selectedGroup) { continue; }
         if (onlyProblems && !hasProblem) { continue; }
 
-        var li = makeElement("li", device.status === "offline" ? "problem" : device.is_new ? "new" : "");
-        li.appendChild(makeElement("span", "dot " + (device.status === "offline" ? "down" : device.is_new ? "warn" : "up")));
-        var name = makeElement("span", "name", deviceName(device));
-        name.appendChild(makeElement("small", "ip", device.ip));
-        li.appendChild(name);
-        list.appendChild(li);
+        if (!buckets[grp]) {
+          buckets[grp] = [];
+        }
+        buckets[grp].push(device);
       }
-
-      if (list.children.length === 0) {
-        list.appendChild(makeElement("li", "", onlyProblems ? "No devices with problems." : "No other devices found."));
-      }
-      box.appendChild(list);
-      groupsBox.appendChild(box);
 
       if (attentionCount === 0) {
         attention.appendChild(makeElement("li", "", "Nothing needs attention."));
       }
 
+      groupsBox.className = "groups live";
+      groupsBox.innerHTML = "";
+
+      var renderedGroups = 0;
+      for (var k = 0; k < GROUP_ORDER.length; k++) {
+        var name = GROUP_ORDER[k];
+        var devList = buckets[name] || [];
+        if (devList.length === 0) { continue; }
+        renderedGroups++;
+
+        var grpOnline = 0;
+        var grpOffline = 0;
+        var grpHasProblem = false;
+        for (var d = 0; d < devList.length; d++) {
+          if (devList[d].status === "online") { grpOnline++; } else { grpOffline++; }
+          if (devList[d].status !== "online" || devList[d].is_new) { grpHasProblem = true; }
+        }
+
+        var box = makeElement("div", "group" + (grpHasProblem ? " alert" : ""));
+        box.appendChild(makeElement("h3", "", name + " (" + devList.length + ")"));
+        var subtext = grpOnline + " online" + (grpOffline > 0 ? ", " + grpOffline + " offline" : "");
+        box.appendChild(makeElement("span", "subnet ip", subtext));
+
+        var ul = makeElement("ul", "device-list");
+        for (var m = 0; m < devList.length; m++) {
+          var dev = devList[m];
+          var li = makeElement("li", dev.status === "offline" ? "problem" : dev.is_new ? "new" : "");
+          li.appendChild(makeElement("span", "dot " + (dev.status === "offline" ? "down" : dev.is_new ? "warn" : "up")));
+          var nameSpan = makeElement("span", "name", deviceName(dev));
+          nameSpan.appendChild(makeElement("small", "ip", dev.ip + (dev.mac ? " · " + dev.mac : "")));
+          li.appendChild(nameSpan);
+          ul.appendChild(li);
+        }
+        box.appendChild(ul);
+        groupsBox.appendChild(box);
+      }
+
+      if (renderedGroups === 0) {
+        var emptyBox = makeElement("div", "group");
+        emptyBox.appendChild(makeElement("h3", "", "No devices match"));
+        emptyBox.appendChild(makeElement("span", "subnet ip", "Try changing the filter options above"));
+        groupsBox.appendChild(emptyBox);
+      }
+
       document.getElementById("router-ip").textContent = report.gateway || "Not found";
-      document.getElementById("device-link-label").textContent = online + " other " + (online === 1 ? "device" : "devices") + " online";
+      document.getElementById("device-link-label").textContent = totalOnline + " other " + (totalOnline === 1 ? "device" : "devices") + " online";
 
       var summary = document.getElementById("summary-list");
       summary.innerHTML = "";
       addStat(summary, "Network", report.network);
-      addStat(summary, "Devices seen (besides the router)", String(online + offline));
-      addStat(summary, "Online now", String(online));
-      addStat(summary, "Offline", String(offline));
-      addStat(summary, "Groups", "Not set up yet");
+      addStat(summary, "Devices seen (besides router)", String(totalOnline + totalOffline));
+      addStat(summary, "Online now", String(totalOnline));
+      addStat(summary, "Offline", String(totalOffline));
+      addStat(summary, "Active groups", String(renderedGroups));
       addStat(summary, "Last scan", formatTime(report.time));
       document.getElementById("summary-hint").textContent = "From the last scan";
 
-      notice.textContent = "Live: devices from the last scan (" + formatTime(report.time) + "). Groups come later, so all devices are shown together.";
+      notice.textContent = "Live: devices from the last scan (" + formatTime(report.time) + "), organized by group.";
     }
 
     function showInternet(results) {
@@ -785,6 +839,9 @@
       event.preventDefault();
       drawMap();
     });
+
+    groupFilter.addEventListener("change", drawMap);
+    deviceFilter.addEventListener("change", drawMap);
 
     // On load, show the last saved scan without scanning again.
     loadDevices("/api/devices", function () {

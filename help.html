@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Help & Glossary - scrtncl</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+      background-color: #e8edf1;
+      color: #1b2b38;
+      line-height: 1.5;
+      display: grid;
+      grid-template-columns: 1fr;
+    }
+
+    /* ---------- Navigation ---------- */
+    nav {
+      background-color: #12324a;
+      color: #ffffff;
+      padding: 12px 16px;
+    }
+
+    nav .brand {
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    nav ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    nav a {
+      display: block;
+      padding: 6px 12px;
+      border-radius: 4px;
+      color: #cfdde8;
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
+
+    nav a:hover {
+      background-color: #1d4764;
+    }
+
+    nav a.current {
+      background-color: #ffffff;
+      color: #12324a;
+      font-weight: 600;
+    }
+
+    /* ---------- Content Layout ---------- */
+    .content {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      min-width: 0;
+    }
+
+    .page-title h1 {
+      margin: 0;
+      font-size: 1.5rem;
+    }
+
+    .page-title p {
+      margin: 4px 0 0 0;
+      color: #5a6e7c;
+    }
+
+    .panel {
+      background-color: #ffffff;
+      border: 1px solid #c3cfd8;
+      border-radius: 6px;
+      padding: 20px;
+      min-width: 0;
+    }
+
+    .panel h2 {
+      margin: 0 0 8px 0;
+      font-size: 1.15rem;
+      color: #12324a;
+    }
+
+    .hint {
+      margin: 0 0 16px 0;
+      font-size: 0.85rem;
+      color: #5a6e7c;
+    }
+
+    /* ---------- Glossary Grid ---------- */
+    .glossary-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+
+    .card {
+      background-color: #f8fafb;
+      border: 1px solid #d3dee6;
+      border-left: 6px solid #12324a;
+      border-radius: 4px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .card h3 {
+      margin: 0;
+      font-size: 1.05rem;
+      color: #12324a;
+    }
+
+    .card .tag {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #5a6e7c;
+    }
+
+    .card p {
+      margin: 0;
+      font-size: 0.92rem;
+      color: #243542;
+    }
+
+    .card .example {
+      margin-top: 4px;
+      padding: 8px 10px;
+      background-color: #ffffff;
+      border: 1px solid #e1e8ed;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      color: #435563;
+    }
+
+    .ip {
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.88rem;
+      background-color: #e8edf1;
+      padding: 1px 4px;
+      border-radius: 3px;
+    }
+
+    /* ---------- Rules for scrtncl ---------- */
+    .principles-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .principles-list li {
+      padding: 10px 14px;
+      background-color: #f8fafb;
+      border: 1px solid #d3dee6;
+      border-radius: 4px;
+      font-size: 0.92rem;
+    }
+
+    .principles-list strong {
+      display: block;
+      color: #12324a;
+      margin-bottom: 2px;
+    }
+
+    footer {
+      padding: 12px 0;
+      text-align: center;
+      font-size: 0.8rem;
+      color: #5a6e7c;
+    }
+
+    /* ---------- Responsive Desktop ---------- */
+    @media (min-width: 750px) {
+      .glossary-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (min-width: 900px) {
+      body {
+        grid-template-columns: 220px 1fr;
+        min-height: 100vh;
+      }
+
+      nav {
+        padding: 20px 12px;
+      }
+
+      nav ul {
+        flex-direction: column;
+      }
+
+      .content {
+        padding: 24px;
+      }
+    }
+
+    @media (min-width: 1250px) {
+      .glossary-grid {
+        grid-template-columns: 1fr 1fr 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <div class="brand">scrtncl</div>
+    <ul>
+      <li><a href="network-dashboard.html">Overview</a></li>
+      <li><a href="network-doctor.html">Network Doctor</a></li>
+      <li><a href="network-map.html">Network Map</a></li>
+      <li><a href="router-center.html">Router Center</a></li>
+      <li><a href="device-manager.html">Device Manager</a></li>
+      <li><a href="ai-technician.html">AI Technician</a></li>
+      <li><a href="settings.html">Settings</a></li>
+      <li><a href="help.html" class="current">Help</a></li>
+    </ul>
+  </nav>
+
+  <div class="content">
+
+    <div class="page-title">
+      <h1>Help & Plain-Language Glossary</h1>
+      <p>Clear explanations of networking terms used across scrtncl.</p>
+    </div>
+
+    <!-- Core Glossary -->
+    <section class="panel">
+      <h2>Network Terms Explained</h2>
+      <p class="hint">What the numbers and diagnoses mean in plain language</p>
+
+      <div class="glossary-grid">
+
+        <div class="card">
+          <span class="tag">Routing</span>
+          <h3>Default Gateway</h3>
+          <p>The "front door" of your local network. It is usually your main router (or your phone when tethering). All traffic destined for the outside internet passes through this address.</p>
+          <div class="example"><strong>Example:</strong> <span class="ip">192.168.100.1</span> (home router) or <span class="ip">10.141.94.14</span> (hotspot).</div>
+        </div>
+
+        <div class="card">
+          <span class="tag">Name Resolution</span>
+          <h3>DNS (Domain Name System)</h3>
+          <p>The internet's phonebook. When you type "example.com", DNS translates that friendly name into the numerical IP address the computer needs to connect.</p>
+          <div class="example"><strong>If slow:</strong> Websites take seconds before they even begin loading.</div>
+        </div>
+
+        <div class="card">
+          <span class="tag">Speed & Responsiveness</span>
+          <h3>Latency & Ping (RTT)</h3>
+          <p>The delay it takes for a data packet to travel from your computer to a destination and return (Round-Trip Time). Measured in milliseconds (ms). Lower is always better.</p>
+          <div class="example"><strong>Rule of thumb:</strong> Under 20 ms is excellent for gaming/calls; over 100 ms feels laggy.</div>
+        </div>
+
+        <div class="card">
+          <span class="tag">Reliability</span>
+          <h3>Packet Loss</h3>
+          <p>When pieces of data sent across the network get lost and never arrive. Even a small loss (1–2%) can cause video calls to freeze, games to stutter, or web pages to fail.</p>
+          <div class="example"><strong>Target:</strong> 0% packet loss.</div>
+        </div>
+
+        <div class="card">
+          <span class="tag">Responsiveness</span>
+          <h3>Bufferbloat (Extra delay when busy)</h3>
+          <p>When someone is downloading or uploading, unmanaged routers queue up too many packets. This causes ping times to jump dramatically even if your raw speed is fast.</p>
+          <div class="example"><strong>What it looks like:</strong> +150 ms extra delay when downloading a file.</div>
+        </div>
+
+        <div class="card">
+          <span class="tag">Wireless</span>
+          <h3>2.4 GHz vs 5 GHz Wi-Fi</h3>
+          <p><strong>2.4 GHz</strong> reaches further through walls but is slower and prone to interference. <strong>5 GHz</strong> is much faster with lower lag, but has shorter range and struggles through concrete.</p>
+          <div class="example"><strong>Tip:</strong> Use 5 GHz in the same room; 2.4 GHz when far away.</div>
+        </div>
+
+        <div class="card">
+          <span class="tag">Wireless</span>
+          <h3>Wi-Fi Signal Strength (dBm & %)</h3>
+          <p>Measured in negative decibel milliwatts (dBm), where numbers closer to zero mean stronger signal. Percentage is a simplified representation.</p>
+          <div class="example"><strong>Scale:</strong> -50 dBm (90–100%) is excellent; -75 dBm (under 40%) is weak.</div>
+        </div>
+
+        <div class="card">
+          <span class="tag">Privacy & Identity</span>
+          <h3>Private MAC Address</h3>
+          <p>Modern phones and laptops periodically generate randomized MAC addresses to prevent public trackers from following you. On local networks, this causes one phone to look like multiple devices over time.</p>
+          <div class="example"><strong>scrtncl handling:</strong> Stale randomized addresses are safely pruned.</div>
+        </div>
+
+        <div class="card">
+          <span class="tag">Security</span>
+          <h3>Certificates & HTTPS</h3>
+          <p>Digital security badges that prove a website is legitimate and encrypt your connection. If your computer's certificate store is outdated, scrtncl uses its built-in verified certificate list.</p>
+          <div class="example"><strong>Safety rule:</strong> Certificate checking is never turned off in scrtncl.</div>
+        </div>
+
+        <div class="card">
+          <span class="tag">Diagnostics</span>
+          <h3>Ports & Port Scanning</h3>
+          <p>Think of an IP address as a building, and ports as numbered room doors. Port 80/443 is web traffic, port 53 is DNS. A port scan checks which doors are open on a private device you own.</p>
+          <div class="example"><strong>Safety guard:</strong> scrtncl only allows scanning private local devices.</div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- NEXUS Spec Principles -->
+    <section class="panel">
+      <h2>The scrtncl Philosophy</h2>
+      <p class="hint">How this tool is built differently</p>
+
+      <ul class="principles-list">
+        <li>
+          <strong>Read-only by default</strong>
+          scrtncl observes, measures, and diagnoses. It never modifies your router settings or network configurations without explicit approval.
+        </li>
+        <li>
+          <strong>Privacy by default</strong>
+          All scans, pings, diagnostics, and history stay 100% on this computer. No cloud AI services or external databases receive your IP addresses or device names.
+        </li>
+        <li>
+          <strong>Evidence-based technician</strong>
+          Answers are strictly tied to real measurements stored in your files, separating measured facts from unknowns and possible causes.
+        </li>
+      </ul>
+    </section>
+
+    <footer>
+      Use this tool only on networks and routers you own or have permission to manage.
+    </footer>
+
+  </div>
+
+</body>
+</html>

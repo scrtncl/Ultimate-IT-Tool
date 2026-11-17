@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+
+# Local secrets and machine-specific configuration
+.env
+.env.*
+!.env.example
+*.local
+
+# Generated local telemetry and scan history
+scrtncl-devices.json
+scrtncl-events.json
+scrtncl-history.jsonl
+scrtncl-results.json
+scrtncl-speed.json

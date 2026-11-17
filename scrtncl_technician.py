@@ -43,7 +43,7 @@ SAFETY = "The technician explains and suggests. It never changes anything on you
 HISTORY_HOURS = 168          # a week of monitoring history
 STALE_HOURS = 24             # a saved check older than this may not match now
 EVENING_HOURS = range(18, 24)
-HOTSPOT_PREFIXES = ("172.20.10.", "192.168.43.")
+HOTSPOT_PREFIXES = ("172.20.10.", "192.168.43.", "10.141.", "10.42.")
 
 INTENT_WORDS = {
     "devices": ["who is on", "who's on", "device", "devices", "intruder", "stranger", "someone", "unknown",
@@ -236,7 +236,9 @@ FIXES = {
             "On Windows, clearing the DNS cache with ipconfig /flushdns can help after a DNS change.",
             "Turn off a VPN or filtering software briefly to see whether it is the cause."],
     "hotspot": ["Move the phone to a spot with better mobile signal.",
-                "Check whether your mobile plan slows data after a limit."],
+                "Check whether your mobile plan slows data after a limit.",
+                "Restarting the phone's hotspot (turn off and on again) can clear a stale connection.",
+                "Try placing the phone near a window or higher up where cellular reception is often stronger."],
     "evening": ["Compare the speed in the morning and in the evening, and keep the numbers.",
                 "If evenings are always much slower, ask your provider about congestion in your area."],
     "internet_drop": ["Restart the modem or router once.",
@@ -364,7 +366,18 @@ def answer_slow(data):
             evidence.append(str(share[0]) + "% of the " + str(share[1]) + " monitoring samples had a router delay above 20 ms.")
         causes.add("router", "Your own network is slow to respond (router busy, or Wi-Fi interference)", evidence)
 
-    if router_ok and not wifi_weak and (delay_high or low_speed):
+    gateway = is_hotspot(data)
+    if gateway and (low_speed or delay_high or wifi_weak):
+        evidence = ["Your gateway address (" + gateway + ") is the one phones use for a hotspot."]
+        if low_speed:
+            evidence.append("Download speed is low: " + item_text(data, "download") + ".")
+        if delay_high:
+            evidence.append("The delay to the internet is high: " + item_text(data, "internet_delay") + ".")
+        if not wifi_weak and item_text(data, "wifi"):
+            evidence.append("Wi-Fi to the phone is strong (" + item_text(data, "wifi") + "), so the bottleneck is the mobile signal.")
+        causes.add("hotspot", "You are on a phone hotspot, where speed depends on the mobile signal", evidence)
+
+    if not gateway and router_ok and not wifi_weak and (delay_high or low_speed):
         evidence = ["Your router answers quickly: " + item_text(data, "router_delay") + "."]
         if delay_high:
             evidence.append("The delay to the internet is high: " + item_text(data, "internet_delay") + ".")
@@ -389,15 +402,6 @@ def answer_slow(data):
         if share and share[0] >= 30:
             evidence.append(str(share[0]) + "% of the " + str(share[1]) + " monitoring samples had a DNS time above 150 ms.")
         causes.add("dns", "Slow DNS lookups make pages slow to start loading", evidence)
-
-    gateway = is_hotspot(data)
-    if gateway and (low_speed or delay_high or wifi_weak):
-        evidence = ["Your gateway address (" + gateway + ") is the one phones use for a hotspot."]
-        if low_speed:
-            evidence.append("Download speed is low: " + item_text(data, "download") + ".")
-        if delay_high:
-            evidence.append("The delay to the internet is high: " + item_text(data, "internet_delay") + ".")
-        causes.add("hotspot", "You may be on a phone hotspot, where speed depends on the mobile signal", evidence)
 
     comparison = evening_comparison(data)
     if comparison and comparison[0] >= 1.5 * comparison[1] and comparison[0] - comparison[1] >= 15:
@@ -432,6 +436,8 @@ def answer_slow(data):
     unknown.append("Whether other devices on the network are using a lot of the connection right now.")
 
     tests, fixes = tests_and_fixes(causes, ["Run the Network Doctor and a speed test at the time it feels slow."])
+    if is_hotspot(data):
+        fixes = [f for f in fixes if "modem or router" not in f]
     return {
         "title": "Why is it slow", "understood_as": understood, "paragraphs": paragraphs,
         "measured": measured, "causes": causes.output(), "unknown": unknown, "tests": tests, "fixes": fixes,
@@ -511,6 +517,8 @@ def answer_drops(data):
     ]
     unknown += freshness_unknowns(data)[:1]
     tests, fixes = tests_and_fixes(causes, ["Keep the server running so the History panel can show a longer record."])
+    if is_hotspot(data):
+        fixes = [f for f in fixes if "modem or router" not in f and "router's power" not in f]
     return {
         "title": "Does the connection drop", "understood_as": understood, "paragraphs": paragraphs,
         "measured": measured, "causes": causes.output(), "unknown": unknown, "tests": tests, "fixes": fixes,

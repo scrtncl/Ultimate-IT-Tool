@@ -585,6 +585,7 @@
       <li><a href="device-manager.html">Device Manager</a></li>
       <li><a href="ai-technician.html">AI Technician</a></li>
       <li><a href="settings.html">Settings</a></li>
+      <li><a href="help.html">Help</a></li>
     </ul>
   </nav>
 
@@ -851,8 +852,8 @@
     <!-- Ping / traceroute -->
     <section class="panel">
       <h2>Ping and traceroute</h2>
-      <p class="hint">Not connected yet. This is a preview of a later feature.</p>
-      <form action="#" method="post"><fieldset disabled>
+      <p class="hint" id="ping-hint">Type a host or IP and press Run test.</p>
+      <form id="ping-form" action="#" method="post">
         <div class="field">
           <label for="ping-host">Host or IP address</label>
           <input type="text" id="ping-host" name="host" placeholder="192.168.1.20 or example.com" required>
@@ -871,18 +872,18 @@
           </div>
         </div>
         <div class="button-row">
-          <button type="submit">Run test</button>
+          <button type="submit" id="ping-run">Run test</button>
           <button type="reset" class="secondary">Clear</button>
         </div>
-      </fieldset></form>
-      <div class="output">Not connected yet.</div>
+      </form>
+      <div class="output" id="ping-output"></div>
     </section>
 
     <!-- Port scan -->
     <section class="panel">
       <h2>Port scan</h2>
-      <p class="hint">Not connected yet. When it is built, only scan devices you own or manage.</p>
-      <form action="#" method="post"><fieldset disabled>
+      <p class="hint" id="portscan-hint">Only scan devices you own or manage. Private addresses only.</p>
+      <form id="portscan-form" action="#" method="post">
         <div class="field">
           <label for="scan-host">Host or IP address</label>
           <input type="text" id="scan-host" name="host" placeholder="192.168.1.21" required>
@@ -901,15 +902,15 @@
           <label for="scan-type">Scan type</label>
           <select id="scan-type" name="type">
             <option value="tcp">TCP</option>
-            <option value="udp">UDP</option>
+            <option value="udp">UDP (not supported)</option>
           </select>
         </div>
         <div class="button-row">
-          <button type="submit">Start scan</button>
+          <button type="submit" id="portscan-run">Start scan</button>
           <button type="reset" class="secondary">Clear</button>
         </div>
-      </fieldset></form>
-      <div class="output">Not connected yet.</div>
+      </form>
+      <div class="output" id="portscan-output"></div>
     </section>
 
     <!-- Router login and commands -->
@@ -1589,6 +1590,114 @@
 
     // Show the last saved speed test, if there is one.
     fetchJson("/api/speed-results").then(showSpeed).catch(function () {});
+
+    // ---- Ping / traceroute form ----------------------------------------
+    var pingForm    = document.getElementById("ping-form");
+    var pingRun     = document.getElementById("ping-run");
+    var pingOutput  = document.getElementById("ping-output");
+    var pingHint    = document.getElementById("ping-hint");
+    var pingTool    = document.getElementById("ping-tool");
+    var pingCount   = document.getElementById("ping-count");
+
+    // Hide the packet-count field when traceroute is selected (it doesn't use it).
+    pingTool.addEventListener("change", function () {
+      pingCount.closest(".field").style.display = pingTool.value === "traceroute" ? "none" : "";
+    });
+
+    pingForm.addEventListener("submit", function (event) {
+      event.preventDefault();
+      var host  = document.getElementById("ping-host").value.trim();
+      var tool  = pingTool.value;
+      var count = parseInt(pingCount.value, 10) || 4;
+      if (!host) { return; }
+
+      pingRun.disabled = true;
+      pingHint.textContent = (tool === "traceroute" ? "Traceroute" : "Ping") + " running\u2026";
+      pingOutput.textContent = "";
+
+      fetch("/api/ping-tool", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ host: host, tool: tool, count: count })
+      }).then(function (response) {
+        return response.json().then(function (data) {
+          if (!response.ok) { throw new Error(data.error || "Request failed"); }
+          return data;
+        });
+      }).then(function (data) {
+        if (data.tool === "ping") {
+          var lines = [];
+          lines.push("Host: " + data.host);
+          lines.push("Sent: " + data.sent + "  Received: " + data.received +
+                     "  Loss: " + data.loss_percent + "%");
+          if (data.min_ms !== null) {
+            lines.push("RTT: min " + data.min_ms + " ms  avg " + data.avg_ms +
+                       " ms  max " + data.max_ms + " ms");
+          } else {
+            lines.push("No reply.");
+          }
+          pingOutput.textContent = lines.join("\n");
+          pingHint.textContent = "Done.";
+        } else {
+          pingOutput.textContent = data.raw || "No output.";
+          pingHint.textContent = "Done.";
+        }
+      }).catch(function (error) {
+        pingOutput.textContent = "Error: " + error.message;
+        pingHint.textContent = "The test failed.";
+      }).then(function () {
+        pingRun.disabled = false;
+      });
+    });
+    // ---- Port scan form ------------------------------------------------
+    var portscanForm   = document.getElementById("portscan-form");
+    var portscanRun    = document.getElementById("portscan-run");
+    var portscanOutput = document.getElementById("portscan-output");
+    var portscanHint   = document.getElementById("portscan-hint");
+
+    portscanForm.addEventListener("submit", function (event) {
+      event.preventDefault();
+      var host  = document.getElementById("scan-host").value.trim();
+      var start = parseInt(document.getElementById("scan-start").value, 10) || 1;
+      var end   = parseInt(document.getElementById("scan-end").value, 10) || 1024;
+      var type  = document.getElementById("scan-type").value;
+      if (!host) { return; }
+
+      portscanRun.disabled = true;
+      portscanOutput.textContent = "";
+      portscanHint.textContent = "Scanning \u2026 (this may take a few seconds)";
+
+      fetch("/api/port-scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ host: host, start: start, end: end, type: type })
+      }).then(function (response) {
+        return response.json().then(function (data) {
+          if (!response.ok) { throw new Error(data.error || "Request failed"); }
+          return data;
+        });
+      }).then(function (data) {
+        var open = data.open || [];
+        var lines = [
+          "Host: " + data.host,
+          "Scanned ports " + data.start + "\u2013" + data.end + " (" + data.scanned + " ports)",
+          "Open: " + (open.length === 0 ? "none" : open.length),
+        ];
+        if (open.length > 0) {
+          lines.push("");
+          open.forEach(function (p) {
+            lines.push("  " + p.port + (p.service ? "  \u2014  " + p.service : ""));
+          });
+        }
+        portscanOutput.textContent = lines.join("\n");
+        portscanHint.textContent = "Done. Only scan devices you own or manage.";
+      }).catch(function (error) {
+        portscanOutput.textContent = "Error: " + error.message;
+        portscanHint.textContent = "Scan failed.";
+      }).then(function () {
+        portscanRun.disabled = false;
+      });
+    });
   </script>
 
 </body>
